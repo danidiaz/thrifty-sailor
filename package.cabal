@@ -16,7 +16,6 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 executable thrifty-sailor
-    hs-source-dirs:      app
     main-is:             Main.hs
     build-depends:       
         base            >=4.10 && <5,
@@ -24,7 +23,9 @@ executable thrifty-sailor
     default-language:    Haskell2010
 
 library
-  -- exposed-modules:     
+  exposed-modules:     
+        ThriftySailor
+        ThriftySailor.Main
   -- other-modules:       
   -- other-extensions:    
   build-depends:
@@ -37,6 +38,7 @@ library
         lens            >=4.4 && <5,
         lens-aeson      >=1.0 && <1.1,
         optparse-applicative >= 0.14.0.0 && < 0.15,
+        directory       >= 1.3.2.0,
         req             ==1.0.0
   hs-source-dirs:      src
   default-language:    Haskell2010
