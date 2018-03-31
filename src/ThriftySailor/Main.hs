@@ -47,7 +47,7 @@ defaultMain = do
     eitherConf <- eitherDecodeFileStrict' file
     case eitherConf of
         Left e -> throwIO $ userError e 
-        Right config -> print config
+        Right config -> print (config :: Config)
     print $ "foo"
     return ()
 
