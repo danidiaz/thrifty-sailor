@@ -1,11 +1,13 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module ThriftySailor.Main where
 
 import System.Directory
 import System.FilePath
 import Control.Exception
+import Control.Monad.Error.Hoist
 import Data.Aeson
 import Options.Applicative
 import qualified Options.Applicative as O
@@ -44,11 +46,7 @@ defaultMain = do
     xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
     let file = xdg </> "config.json" 
     print xdg
-    eitherConf <- eitherDecodeFileStrict' file
-    case eitherConf of
-        Left e -> throwIO $ userError e 
-        Right config -> print (config :: Config)
-    print $ "foo"
+    eitherConf :: Config <- eitherDecodeFileStrict' file `joinError` userError
+    print $ eitherConf
     return ()
-
 

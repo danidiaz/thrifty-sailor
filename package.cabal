@@ -26,6 +26,7 @@ library
   exposed-modules:     
         ThriftySailor
         ThriftySailor.Main
+        Control.Monad.Error.Hoist
   -- other-modules:       
   -- other-extensions:    
   build-depends:
@@ -37,10 +38,11 @@ library
         aeson-pretty    >=0.8 && <0.9,
         lens            >=4.4 && <5,
         lens-aeson      >=1.0 && <1.1,
-        optparse-applicative >= 0.14.0.0 && < 0.15,
-        directory       >= 1.3.2.0,
-        filepath        >= 1.4.2,
+        optparse-applicative >=0.14.0.0 && < 0.15,
+        directory       >=1.3.2.0,
+        filepath        >=1.4.2,
         req             ==1.0.0,
-        transformers    >=0.5.5.0
+        transformers    >=0.5.5.0,
+        mtl             >=2.2.2
   hs-source-dirs:      src
   default-language:    Haskell2010
