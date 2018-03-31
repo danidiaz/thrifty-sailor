@@ -13,7 +13,7 @@ maintainer:          daniel@bogusemailserver.com
 category:            Network
 build-type:          Simple
 extra-source-files:  ChangeLog.md
-cabal-version:       >=1.10
+cabal-version:       >=2
 
 executable thrifty-sailor
     main-is:             Main.hs
@@ -26,7 +26,6 @@ library
   exposed-modules:     
         ThriftySailor
         ThriftySailor.Main
-        Control.Monad.Error.Hoist
   -- other-modules:       
   -- other-extensions:    
   build-depends:

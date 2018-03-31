@@ -7,8 +7,9 @@ module ThriftySailor.Main where
 import System.Directory
 import System.FilePath
 import Control.Exception
-import Control.Monad.Error.Hoist
+import Control.Monad.Except
 import Data.Aeson
+import Data.Bifunctor (first)
 import Options.Applicative
 import qualified Options.Applicative as O
 
@@ -47,7 +48,8 @@ defaultMain = do
     xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
     let file = xdg </> "config.json" 
     print xdg
-    eitherConf :: Config <- eitherDecodeFileStrict' file `joinError` userError
-    print $ eitherConf
+    conf' :: Either String Config <- eitherDecodeFileStrict' file
+    conf :: Config <- liftEither . first userError $ conf'
+    print $ conf
     return ()
 
