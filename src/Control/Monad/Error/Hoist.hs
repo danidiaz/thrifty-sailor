@@ -45,10 +45,10 @@ instance MonadError e' m => HoistError m (Either e) e e' where
 
 instance (m ~ n, MonadError e' m) => HoistError m (ExceptT e n) e e' where
   hoistError f e = do
-	bare <- runExceptT e
-	case bare of
-		Left err -> throwError . f $ err
-		Right value -> return value
+    bare <- runExceptT e
+    case bare of
+        Left err -> throwError . f $ err
+        Right value -> return value
 
 -- | A flipped synonym for 'hoistError'.
 (<%?>)

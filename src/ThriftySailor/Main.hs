@@ -20,6 +20,8 @@ instance FromJSON Config where
 
 data Command = Init | Ask | Up | Down deriving (Eq,Show)
 
+data NameDesc = NameDesc { name :: String, desc :: String }
+
 parserInfo :: O.ParserInfo Command
 parserInfo = 
     let parser = 
@@ -30,14 +32,13 @@ parserInfo =
             , subcommand (pure Down) $ NameDesc "down" "downs stuff"
             ]
      in infoHelpDesc parser "Main options."
+  where
+    infoHelpDesc :: O.Parser a -> String -> O.ParserInfo a
+    infoHelpDesc p desc = O.info (O.helper <*> p) (O.fullDesc <> O.progDesc desc)
 
-data NameDesc = NameDesc { name :: String, desc :: String }
+    subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
+    subcommand p (NameDesc {name,desc}) = O.command name (infoHelpDesc p desc)
 
-infoHelpDesc :: O.Parser a -> String -> O.ParserInfo a
-infoHelpDesc p desc = O.info (O.helper <*> p) (O.fullDesc <> O.progDesc desc)
-
-subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
-subcommand p (NameDesc {name,desc}) = O.command name (infoHelpDesc p desc)
 
 defaultMain :: IO ()
 defaultMain = do
