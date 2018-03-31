@@ -6,18 +6,22 @@ module ThriftySailor.Main where
 
 import System.Directory
 import System.FilePath
-import Control.Exception
-import Control.Monad.Except
+import System.Environment
+import Control.Monad.Except 
 import Data.Aeson
-import Data.Bifunctor (first)
+import Data.Function ((&))
+import Data.Bifunctor
 import Options.Applicative
 import qualified Options.Applicative as O
 
 data Config = Config { doTokenEnvVar :: String } deriving (Eq,Show)
 
+sample :: Config
+sample = Config "DIGITAL_OCEAN_TOKEN"
+
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \v -> Config
-         <$> v .: "DO_TOKEN_ENV_VARIABLE"
+         <$> v .: "DIGITAL_OCEAN_TOKEN_ENV_VARIABLE"
 
 data Command = Init | Ask | Up | Down deriving (Eq,Show)
 
@@ -44,12 +48,20 @@ parserInfo =
 defaultMain :: IO ()
 defaultMain = do
     command <- O.execParser parserInfo
-    print $ command
     xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
     let file = xdg </> "config.json" 
-    print xdg
-    conf' :: Either String Config <- eitherDecodeFileStrict' file
-    conf :: Config <- liftEither . first userError $ conf'
+    putStrLn $ "Looking for configuration file " ++ file
+    conf <- eitherDecodeFileStrict' file >>= eitherError userError
+    print conf
+    let Config {doTokenEnvVar} = conf
+        tokenNotFoundMsg = "Token " ++ doTokenEnvVar ++ " not found in environment."
+    doToken <- lookupEnv doTokenEnvVar >>= maybeError (userError tokenNotFoundMsg)
     print $ conf
     return ()
 
+
+eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
+eitherError f = either throwError return . first f
+
+maybeError :: MonadError e' m => e' -> Maybe r -> m r 
+maybeError e' = maybe (throwError e') return
