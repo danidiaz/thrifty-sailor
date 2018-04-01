@@ -106,8 +106,8 @@ defaultMainWith msgs = do
     loadToken = do
         conf <- loadConf 
         let Config {doTokenEnvVar} = conf
-        m <- lookupEnv doTokenEnvVar 
-        token <- maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
+        token <- do m <- lookupEnv doTokenEnvVar 
+                    maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
         return (conf,token)
     
 eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
