@@ -84,13 +84,15 @@ defaultMain = defaultMainWith msgs
 defaultMainWith :: Msgs -> IO ()
 defaultMainWith msgs = do 
     command <- O.execParser parserInfo
+    let load = do conf <- loadConf
+                  loadToken conf
     case command of
         Example -> 
               Data.ByteString.Lazy.Char8.putStrLn 
             . Data.Aeson.Encode.Pretty.encodePretty  
             $ sample 
         _ -> 
-            do (conf,token) <- loadToken
+            do (conf,token) <- load
                print $ conf
                print $ token
     return ()
@@ -102,10 +104,8 @@ defaultMainWith msgs = do
         putStrLn $ lookingForConfFile msgs file
         e <- eitherDecodeFileStrict' file
         eitherError userError e
-    loadToken :: IO (Config,Token)
-    loadToken = do
-        conf <- loadConf 
-        let Config {doTokenEnvVar} = conf
+    loadToken :: Config -> IO (Config,Token)
+    loadToken conf@(Config {doTokenEnvVar}) = do
         token <- do m <- lookupEnv doTokenEnvVar 
                     maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
         return (conf,token)
