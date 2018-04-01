@@ -10,10 +10,12 @@ import System.FilePath
 import System.Environment
 import Control.Monad.Except 
 import Data.Aeson
+import qualified Data.Aeson.Encode.Pretty
 import Data.Function ((&))
 import Data.Bifunctor
 import Options.Applicative
 import qualified Options.Applicative as O
+import qualified Data.ByteString.Lazy.Char8
 
 data Config = Config { doTokenEnvVar :: String } deriving (Eq,Show)
 
@@ -24,18 +26,35 @@ instance FromJSON Config where
     parseJSON = withObject "Config" $ \v -> Config
          <$> v .: "DIGITAL_OCEAN_TOKEN_ENV_VARIABLE"
 
-data Command = Init | Ask | Up | Down deriving (Eq,Show)
+instance ToJSON Config where
+    toJSON (Config {doTokenEnvVar}) =
+          object ["DIGITAL_OCEAN_TOKEN_ENV_VARIABLE" .= doTokenEnvVar]
+
+data Command = Example | Status | Up | Down deriving (Eq,Show)
 
 data NameDesc = NameDesc { name :: String, desc :: String }
 
 parserInfo :: O.ParserInfo Command
 parserInfo = 
     let parser = 
-            O.subparser . mconcat $
-            [ subcommand (pure Init) $ NameDesc "init" "inits stuff"
-            , subcommand (pure Ask) $ NameDesc "ask" "asks stuff"
-            , subcommand (pure Up) $ NameDesc "up" "ups stuff"
-            , subcommand (pure Down) $ NameDesc "down" "downs stuff"
+            O.subparser 
+          . mconcat
+          $ [ subcommand 
+              (pure Example)  
+              (NameDesc "example" 
+                        "Print example configuration to stdout")
+            , subcommand 
+              (pure Status)  
+              (NameDesc "status" 
+                        "Show current status of the target server")
+            , subcommand 
+              (pure Up)  
+              (NameDesc "up" 
+                        "Restores server from snapshot, deletes snapshot")
+            , subcommand 
+              (pure Down)
+              (NameDesc "down" 
+                        "Shuts down server, makes snapshot, destroys server")
             ]
      in infoHelpDesc parser "Main options."
   where
@@ -57,24 +76,39 @@ msgs =
     (\file -> "Looking for configuration file " ++ file ++ ".")
     (\var -> "Token " ++ var ++ " not found in environment.") 
 
+type Token = String
+
 defaultMain :: IO ()
 defaultMain = defaultMainWith msgs
 
 defaultMainWith :: Msgs -> IO ()
 defaultMainWith msgs = do 
     command <- O.execParser parserInfo
-    xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
-    let file = xdg </> "config.json" 
-    putStrLn $ lookingForConfFile msgs file
-    conf <- do e <- eitherDecodeFileStrict' file
-               eitherError userError e
-    print conf
-    let Config {doTokenEnvVar} = conf
-    doToken <- do m <- lookupEnv doTokenEnvVar 
-                  maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
-    print $ conf
+    case command of
+        Example -> Data.ByteString.Lazy.Char8.putStrLn 
+                 . Data.Aeson.Encode.Pretty.encodePretty  
+                 $ sample 
+        _ -> do
+            (conf,token) <- loadToken
+            print $ conf
+            print $ token
     return ()
-
+  where
+    loadConf :: IO Config
+    loadConf = do
+        xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
+        let file = xdg </> "config.json" 
+        putStrLn $ lookingForConfFile msgs file
+        e <- eitherDecodeFileStrict' file
+        eitherError userError e
+    loadToken :: IO (Config,Token)
+    loadToken = do
+        conf <- loadConf 
+        let Config {doTokenEnvVar} = conf
+        m <- lookupEnv doTokenEnvVar 
+        token <- maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
+        return (conf,token)
+    
 eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
 eitherError f = either throwError return . first f
 
