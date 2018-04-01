@@ -89,10 +89,10 @@ defaultMainWith msgs = do
               Data.ByteString.Lazy.Char8.putStrLn 
             . Data.Aeson.Encode.Pretty.encodePretty  
             $ sample 
-        _ -> do
-            (conf,token) <- loadToken
-            print $ conf
-            print $ token
+        _ -> 
+            do (conf,token) <- loadToken
+               print $ conf
+               print $ token
     return ()
   where
     loadConf :: IO Config
