@@ -45,7 +45,8 @@ parserInfo =
     subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
     subcommand p (NameDesc {name,desc}) = O.command name (infoHelpDesc p desc)
 
-data Msgs = Msgs {
+data Msgs = Msgs 
+    {
         lookingForConfFile :: FilePath -> String,
         tokenNotFound :: String -> String
     }
