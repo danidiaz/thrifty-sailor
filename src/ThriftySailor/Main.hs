@@ -17,6 +17,8 @@ import Options.Applicative
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 
+import ThriftySailor (Token)
+
 data Config = Config { doTokenEnvVar :: String } deriving (Eq,Show)
 
 sample :: Config
@@ -76,11 +78,8 @@ msgs =
     (\file -> "Looking for configuration file " ++ file ++ ".")
     (\var -> "Token " ++ var ++ " not found in environment.") 
 
-type Token = String
-
 defaultMain :: IO ()
 defaultMain = defaultMainWith msgs
-
 
 defaultMainWith :: Msgs -> IO ()
 defaultMainWith msgs = do 
