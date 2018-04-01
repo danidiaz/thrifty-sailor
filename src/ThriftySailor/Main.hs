@@ -81,10 +81,12 @@ type Token = String
 defaultMain :: IO ()
 defaultMain = defaultMainWith msgs
 
+
 defaultMainWith :: Msgs -> IO ()
 defaultMainWith msgs = do 
     command <- O.execParser parserInfo
-    let load = do conf <- loadConf
+    let load = do path <- xdgConfPath
+                  conf <- loadConf path
                   loadToken conf
     case command of
         Example -> 
@@ -97,11 +99,14 @@ defaultMainWith msgs = do
                print $ token
     return ()
   where
-    loadConf :: IO Config
-    loadConf = do
+    xdgConfPath :: IO FilePath
+    xdgConfPath = do
         xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
         let file = xdg </> "config.json" 
         putStrLn $ lookingForConfFile msgs file
+        return file
+    loadConf :: FilePath -> IO Config
+    loadConf file = do
         e <- eitherDecodeFileStrict' file
         eitherError userError e
     loadToken :: Config -> IO (Config,Token)
