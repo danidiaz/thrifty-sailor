@@ -85,9 +85,10 @@ defaultMainWith :: Msgs -> IO ()
 defaultMainWith msgs = do 
     command <- O.execParser parserInfo
     case command of
-        Example -> Data.ByteString.Lazy.Char8.putStrLn 
-                 . Data.Aeson.Encode.Pretty.encodePretty  
-                 $ sample 
+        Example -> 
+            Data.ByteString.Lazy.Char8.putStrLn 
+          . Data.Aeson.Encode.Pretty.encodePretty  
+          $ sample 
         _ -> do
             (conf,token) <- loadToken
             print $ conf
