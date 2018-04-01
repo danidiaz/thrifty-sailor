@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 module ThriftySailor.Main where
 
 import System.Directory
@@ -44,21 +45,34 @@ parserInfo =
     subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
     subcommand p (NameDesc {name,desc}) = O.command name (infoHelpDesc p desc)
 
+data Msgs = Msgs {
+        lookingForConfFile :: FilePath -> String,
+        tokenNotFound :: String -> String
+    }
+
+msgs :: Msgs
+msgs = 
+    Msgs 
+    (\file -> "Looking for configuration file " ++ file ++ ".")
+    (\var -> "Token " ++ var ++ " not found in environment.") 
 
 defaultMain :: IO ()
-defaultMain = do
+defaultMain = defaultMainWith msgs
+
+defaultMainWith :: Msgs -> IO ()
+defaultMainWith msgs = do 
     command <- O.execParser parserInfo
     xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
     let file = xdg </> "config.json" 
-    putStrLn $ "Looking for configuration file " ++ file
-    conf <- eitherDecodeFileStrict' file >>= eitherError userError
+    putStrLn $ lookingForConfFile msgs file
+    conf <- do e <- eitherDecodeFileStrict' file
+               eitherError userError e
     print conf
     let Config {doTokenEnvVar} = conf
-        tokenNotFoundMsg = "Token " ++ doTokenEnvVar ++ " not found in environment."
-    doToken <- lookupEnv doTokenEnvVar >>= maybeError (userError tokenNotFoundMsg)
+    doToken <- do m <- lookupEnv doTokenEnvVar 
+                  maybeError (userError (tokenNotFound msgs doTokenEnvVar)) m
     print $ conf
     return ()
-
 
 eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
 eitherError f = either throwError return . first f
