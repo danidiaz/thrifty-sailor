@@ -4,6 +4,10 @@
 
     cabal new-build
 
+## Digital Ocean API
+
+[API V2](https://developers.digitalocean.com/documentation/v2/)
+
 # Alternative: doctl
 
 [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client)
