@@ -64,16 +64,16 @@ data Droplet = Droplet
              } deriving Show
 
 dropletId :: Lens' Droplet Integer
-dropletId f x = f (_dropletId x) <&> \z -> x { _dropletId = z }
+dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 
 dropletName :: Lens' Droplet Text
-dropletName f x = f (_dropletName x) <&> \z -> x { _dropletName = z }
+dropletName f s = _dropletName s & f <&> \a -> s { _dropletName = a }
 
 regionSlug :: Lens' Droplet Text
-regionSlug f x = f (_regionSlug x) <&> \z -> x { _regionSlug = z }
+regionSlug f s = _regionSlug s & f <&> \a -> s { _regionSlug = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
-dropletStatus f x = f (_status x) <&> \z -> x { _status = z }
+dropletStatus f s = _status s & f <&> \a -> s { _status = a }
 
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
@@ -124,13 +124,13 @@ data Snapshot = Snapshot
               } deriving Show
 
 snapshotId :: Lens' Snapshot Text
-snapshotId f x = f (_snapshotId x) <&> \z -> x { _snapshotId = z }
+snapshotId f s = _snapshotId s & f <&> \a -> s { _snapshotId = a }
 
 snapshotName :: Lens' Snapshot Text
-snapshotName f x = f (_snapshotName x) <&> \z -> x { _snapshotName = z }
+snapshotName f s = _snapshotName s & f <&> \a -> s { _snapshotName = a }
 
 snapshotRegionSlugs :: Lens' Snapshot [Text]
-snapshotRegionSlugs f x = f (_snapshotRegionSlugs x) <&> \z -> x { _snapshotRegionSlugs = z }
+snapshotRegionSlugs f s = _snapshotRegionSlugs s & f <&> \a -> s { _snapshotRegionSlugs = a }
 
 instance FromJSON Snapshot where
     parseJSON = withObject "Snapshot" $ \v -> 
