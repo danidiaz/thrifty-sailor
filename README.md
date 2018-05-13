@@ -27,6 +27,8 @@ We can name snapshots. Snapshots can have the same name as droplets.
 
 Snapshot ids are strings, droplets ids are ints. Don't ask me why.
 
+Droplet names need not be unique.
+
 # Alternative: doctl
 
 [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client)
