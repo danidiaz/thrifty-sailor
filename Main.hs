@@ -8,24 +8,33 @@ module Main where
 import System.Directory
 import System.FilePath
 import System.Environment
+import System.IO
 import Data.Aeson
 import qualified Data.Aeson.Encode.Pretty
 import Data.Function ((&))
 import Options.Applicative
+import Control.Monad.Except
+import Control.Lens hiding ((.=))
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             as Text
 
-import ThriftySailor (Token,droplets,snapshots)
+import ThriftySailor (Token
+                     ,droplets
+                     ,snapshots
+                     ,dropletsWithName
+                     ,dropletsWithRegion
+                     ,dropletStatus
+                     ,DropletStatus(..))
 import ThriftySailor.Prelude
 
 data Config = Config 
             { 
                 doTokenEnvVar :: String 
-            ,   dropletName :: Text 
-            ,   snapshotName :: Text
-            ,   regionSlug :: Text
+            ,   confDropletName :: Text 
+            ,   confSnapshotName :: Text
+            ,   confRegionSlug :: Text
             } deriving (Eq,Show)
 
 sample :: Config
@@ -37,16 +46,16 @@ sample = Config "DIGITAL_OCEAN_TOKEN"
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \v -> 
         Config <$> v .: "token_environment_variable"
-               <*> v .: "dropletName"
-               <*> v .: "snapshotName"
-               <*> v .: "regionSlug"
+               <*> v .: "droplet_name"
+               <*> v .: "snapshot_name"
+               <*> v .: "region_slug"
 
 instance ToJSON Config where
-    toJSON (Config {doTokenEnvVar,dropletName,snapshotName,regionSlug}) =
+    toJSON (Config {doTokenEnvVar,confDropletName,confSnapshotName,confRegionSlug}) =
           object [ "token_environment_variable" .= doTokenEnvVar
-                 , "dropletName" .= dropletName  
-                 , "snapshotName" .= snapshotName
-                 , "regionSlug" .= regionSlug
+                 , "droplet_name" .= confDropletName
+                 , "snapshot_name" .= confSnapshotName
+                 , "region_slug" .= confRegionSlug
                  ]
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
@@ -115,6 +124,29 @@ defaultMainWith msgs = do
                print drops
                snaps <- snapshots token
                print snaps
+        Down -> 
+            do (conf,token) <- load
+               ds <- droplets token
+               let Config {confDropletName,confRegionSlug} = conf
+               hPutStrLn stderr $ "Looking for droplet with name " 
+                                ++ Text.unpack confDropletName
+                                ++ " in region "
+                                ++ Text.unpack confRegionSlug
+               case dropletsWithName confDropletName ds of
+                    [] -> throwError (userError ("No candidate droplet."))
+                    _ : _ : _ -> throwError (userError ("More than one candidate droplet."))
+                    ds' -> case dropletsWithRegion confRegionSlug ds' of
+                        [] -> throwError (userError ("Droplet not in expected region."))
+                        _ : _ : _ -> error "never happens"
+                        [d] -> do
+                            hPutStrLn stderr $ "Target droplet found."                        
+                            let status = view dropletStatus d 
+                            hPutStrLn stderr $ "Droplet status is " ++ show status                        
+                            case view dropletStatus d of
+                                Active -> pure ()
+                                Off -> pure ()
+                                _ -> throwError (userError ("Droplet not in valid status for snapshot."))
+                            pure () 
         _ -> 
             do (conf,token) <- load
                print $ conf
@@ -125,7 +157,7 @@ defaultMainWith msgs = do
     xdgConfPath = do
         xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
         let file = xdg </> "config.json" 
-        putStrLn $ lookingForConfFile msgs file
+        hPutStrLn stderr $ lookingForConfFile msgs file
         return file
     loadConf :: FilePath -> IO Config
     loadConf file = do

@@ -8,9 +8,9 @@ module ThriftySailor (
     ,   dropletId
     ,   dropletName
     ,   regionSlug
-    ,   regionStatus
+    ,   dropletStatus
 
-    ,   DropletStatus
+    ,   DropletStatus(..)
     ,   _New
     ,   _Active
     ,   _Off
@@ -22,6 +22,9 @@ module ThriftySailor (
     ,   snapshotId
     ,   snapshotName
     ,   snapshotRegionSlugs
+
+    ,   dropletsWithName
+    ,   dropletsWithRegion
     ) where
 
 import           Data.Foldable
@@ -69,8 +72,8 @@ dropletName f x = f (_dropletName x) <&> \z -> x { _dropletName = z }
 regionSlug :: Lens' Droplet Text
 regionSlug f x = f (_regionSlug x) <&> \z -> x { _regionSlug = z }
 
-regionStatus :: Lens' Droplet DropletStatus
-regionStatus f x = f (_status x) <&> \z -> x { _status = z }
+dropletStatus :: Lens' Droplet DropletStatus
+dropletStatus f x = f (_status x) <&> \z -> x { _status = z }
 
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
@@ -149,4 +152,8 @@ doGET relUrl token =
    do r <- getWith (authorized token) (baseUrl ++ relUrl)
       view responseBody <$> asJSON r
 
+dropletsWithName :: Text -> [Droplet] -> [Droplet]
+dropletsWithName name = toListOf (folded.filtered (has (dropletName.only name))) 
 
+dropletsWithRegion :: Text -> [Droplet] -> [Droplet]
+dropletsWithRegion region = toListOf (folded.filtered (has (regionSlug.only region))) 
