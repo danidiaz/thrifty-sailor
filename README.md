@@ -4,9 +4,13 @@
 
     cabal new-build
 
+    cabal new-run exe:thrifty-sailor -- status
+
 ## Digital Ocean API
 
 [API V2](https://developers.digitalocean.com/documentation/v2/)
+
+[Snapshots and regions.](https://www.digitalocean.com/community/tutorials/how-to-migrate-digitalocean-droplets-using-snapshots#step-2-%E2%80%94-adding-the-snapshot-to-new-region-(optional))
 
 # Alternative: doctl
 
