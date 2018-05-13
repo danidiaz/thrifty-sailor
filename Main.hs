@@ -14,22 +14,40 @@ import Data.Function ((&))
 import Options.Applicative
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
+import           Data.Text (Text)            
+import qualified Data.Text             as Text
 
 import ThriftySailor (Token,droplets,snapshots)
 import ThriftySailor.Prelude
 
-data Config = Config { doTokenEnvVar :: String } deriving (Eq,Show)
+data Config = Config 
+            { 
+                doTokenEnvVar :: String 
+            ,   dropletName :: Text 
+            ,   snapshotName :: Text
+            ,   regionSlug :: Text
+            } deriving (Eq,Show)
 
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
+                "dummy_droplet_name"
+                "dummy_snapshot_name"
+                "ams3"
 
 instance FromJSON Config where
-    parseJSON = withObject "Config" $ \v -> Config
-         <$> v .: "DIGITAL_OCEAN_TOKEN_ENV_VARIABLE"
+    parseJSON = withObject "Config" $ \v -> 
+        Config <$> v .: "token_environment_variable"
+               <*> v .: "dropletName"
+               <*> v .: "snapshotName"
+               <*> v .: "regionSlug"
 
 instance ToJSON Config where
-    toJSON (Config {doTokenEnvVar}) =
-          object ["DIGITAL_OCEAN_TOKEN_ENV_VARIABLE" .= doTokenEnvVar]
+    toJSON (Config {doTokenEnvVar,dropletName,snapshotName,regionSlug}) =
+          object [ "token_environment_variable" .= doTokenEnvVar
+                 , "dropletName" .= dropletName  
+                 , "snapshotName" .= snapshotName
+                 , "regionSlug" .= regionSlug
+                 ]
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
 
