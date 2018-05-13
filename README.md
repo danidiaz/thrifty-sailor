@@ -12,6 +12,21 @@
 
 [Snapshots and regions.](https://www.digitalocean.com/community/tutorials/how-to-migrate-digitalocean-droplets-using-snapshots#step-2-%E2%80%94-adding-the-snapshot-to-new-region-(optional))
 
+It seems that the same snapshot can be present [in multiple regions](https://developers.digitalocean.com/documentation/v2/#list-all-droplet-snapshots):
+
+> An array of the regions that the image is available in. The regions are
+> represented by their identifying slug values.
+
+I gather that [taking a new snapshot from a
+droplet](https://developers.digitalocean.com/documentation/v2/#snapshot-a-droplet)
+always happens in the *particular* region associated to the droplet?
+
+And creating a droplet [requires you to specify a region](https://developers.digitalocean.com/documentation/v2/#create-a-new-droplet).
+
+We can name snapshots. Snapshots can have the same name as droplets.
+
+Snapshot ids are strings, droplets ids are ints. Don't ask me why.
+
 # Alternative: doctl
 
 [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client)

@@ -15,7 +15,7 @@ import Options.Applicative
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 
-import ThriftySailor (Token,droplets)
+import ThriftySailor (Token,droplets,snapshots)
 import ThriftySailor.Prelude
 
 data Config = Config { doTokenEnvVar :: String } deriving (Eq,Show)
@@ -93,8 +93,10 @@ defaultMainWith msgs = do
             $ sample 
         Status -> 
             do (conf,token) <- load
-               ds <- droplets token
-               print ds
+               drops <- droplets token
+               print drops
+               snaps <- snapshots token
+               print snaps
         _ -> 
             do (conf,token) <- load
                print $ conf
