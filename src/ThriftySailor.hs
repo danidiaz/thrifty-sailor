@@ -1,12 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 module ThriftySailor (
         Token
-    ,   Droplet(..)
-    ,   DropletStatus(..)
     ,   droplets
-    ,   Snapshot(..)
+
+    ,   Droplet
+    ,   dropletId
+    ,   dropletName
+    ,   regionSlug
+    ,   regionStatus
+
+    ,   DropletStatus
+    ,   _New
+    ,   _Active
+    ,   _Off
+    ,   _Archive 
+
     ,   snapshots
+
+    ,   Snapshot
+    ,   snapshotId
+    ,   snapshotName
+    ,   snapshotRegionSlugs
     ) where
 
 import           Data.Foldable
@@ -14,6 +29,7 @@ import           Data.Traversable
 import           Data.Aeson
 import           Network.Wreq
 import           Control.Applicative
+import           Control.Lens
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
 import qualified Data.Text             as Text
@@ -38,11 +54,23 @@ instance FromJSON Droplets where
 
 data Droplet = Droplet 
              {
-                id :: Integer
-             ,  name :: Text
-             ,  regionSlug :: Text
-             ,  status :: DropletStatus
+                _dropletId :: Integer
+             ,  _dropletName :: Text
+             ,  _regionSlug :: Text
+             ,  _status :: DropletStatus
              } deriving Show
+
+dropletId :: Lens' Droplet Integer
+dropletId f x = f (_dropletId x) <&> \z -> x { _dropletId = z }
+
+dropletName :: Lens' Droplet Text
+dropletName f x = f (_dropletName x) <&> \z -> x { _dropletName = z }
+
+regionSlug :: Lens' Droplet Text
+regionSlug f x = f (_regionSlug x) <&> \z -> x { _regionSlug = z }
+
+regionStatus :: Lens' Droplet DropletStatus
+regionStatus f x = f (_status x) <&> \z -> x { _status = z }
 
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
@@ -53,6 +81,22 @@ instance FromJSON Droplet where
                 <*> v .: "status"
 
 data DropletStatus = New | Active | Off | Archive deriving (Show,Eq)
+
+_New :: Traversal' DropletStatus ()
+_New f = \case New -> pure New <* f ()
+               other -> pure other
+
+_Active :: Traversal' DropletStatus ()
+_Active f = \case Active -> pure Active <* f ()
+                  other -> pure other
+
+_Off :: Traversal' DropletStatus ()
+_Off f = \case Off -> pure Off <* f ()
+               other -> pure other
+
+_Archive :: Traversal' DropletStatus ()
+_Archive f = \case Archive -> pure Archive <* f ()
+                   other -> pure other
 
 instance FromJSON DropletStatus where
     parseJSON = withText "Status" $ \v -> 
@@ -71,10 +115,19 @@ instance FromJSON Snapshots where
 
 data Snapshot = Snapshot
               {
-                id :: Text
-              , name :: Text
-              , regionSlugs :: [Text]
+                _snapshotId :: Text
+              , _snapshotName :: Text
+              , _snapshotRegionSlugs :: [Text]
               } deriving Show
+
+snapshotId :: Lens' Snapshot Text
+snapshotId f x = f (_snapshotId x) <&> \z -> x { _snapshotId = z }
+
+snapshotName :: Lens' Snapshot Text
+snapshotName f x = f (_snapshotName x) <&> \z -> x { _snapshotName = z }
+
+snapshotRegionSlugs :: Lens' Snapshot [Text]
+snapshotRegionSlugs f x = f (_snapshotRegionSlugs x) <&> \z -> x { _snapshotRegionSlugs = z }
 
 instance FromJSON Snapshot where
     parseJSON = withObject "Snapshot" $ \v -> 
