@@ -129,9 +129,9 @@ defaultMainWith msgs = do
                ds <- droplets token
                let Config {confDropletName,confRegionSlug} = conf
                hPutStrLn stderr $ "Looking for droplet with name " 
-                                ++ Text.unpack confDropletName
-                                ++ " in region "
-                                ++ Text.unpack confRegionSlug
+                               ++ Text.unpack confDropletName
+                               ++ " in region "
+                               ++ Text.unpack confRegionSlug
                case dropletsWithName confDropletName ds of
                     [] -> throwError (userError ("No candidate droplet."))
                     _ : _ : _ -> throwError (userError ("More than one candidate droplet."))
