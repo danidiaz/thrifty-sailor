@@ -1,6 +1,16 @@
 # thrifty-sailor
 
-## Build instructions
+## Build / Devel
+
+    ghcid --command="cabal new-repl exe:thrifty-sailor"
+
+    ghcid --command="cabal new-repl lib:thrifty-sailor"
+
+    ghcid --command="cabal new-repl lib:delays"
+
+    ghcid --command="cabal new-repl lib:prelude"
+
+ghcid can be opened directly in Vim's :term
 
     cabal new-build
 
