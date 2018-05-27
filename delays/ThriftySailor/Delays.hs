@@ -4,11 +4,12 @@ module ThriftySailor.Delays (
    , seconds
    , Factor
    , factor
+   , waits
    , giveUp
-   , cutoff
 ) where
 
 import           Control.Concurrent
+import           Data.Fixed
 import           Data.Time.Clock
 import           Streaming
 import qualified Streaming.Prelude as S
@@ -29,8 +30,8 @@ factor r = Factor $
         then error $ "wrong factor range" ++ show r
         else r
 
-delays :: Seconds -> Factor -> Seconds -> Stream (Of ()) IO r
-delays minDelay (Factor f) maxDelay = 
+waits :: Seconds -> Factor -> Seconds -> Stream (Of ()) IO r
+waits minDelay (Factor f) maxDelay = 
     do S.for (S.each values)
              (\t -> do liftIO (threadDelay t)
                        S.yield ())
@@ -43,5 +44,14 @@ delays minDelay (Factor f) maxDelay =
     floatify = fromIntegral . (*1e6) . getSeconds
 
 giveUp :: Seconds -> Stream (Of a) IO r -> Stream (Of a) IO (Either () r)  
-giveUp = undefined
-
+giveUp (Seconds s) stream = 
+ do time0 <- lift getCurrentTime
+    let tiredOfWaiting = 
+              void  
+            . S.untilRight
+            $ do diff <- diffUTCTime time0 <$> getCurrentTime
+                 pure $ if fromIntegral s < diff        
+                           then Right ()
+                           else Left ()
+    S.zipWith (\_ a -> a) (Left <$> tiredOfWaiting) (Right <$> stream)
+                
