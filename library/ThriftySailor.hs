@@ -152,11 +152,3 @@ doGET relUrl token =
    do r <- getWith (authorized token) (baseUrl ++ relUrl)
       view responseBody <$> asJSON r
 
-dropletsWithName :: Foldable f => Text -> f Droplet -> [Droplet]
-dropletsWithName name = toListOf (folded.filtered (has (dropletName.only name))) 
-
-dropletsWithRegion :: Foldable f => Text -> f Droplet -> [Droplet]
-dropletsWithRegion region = toListOf (folded.filtered (has (regionSlug.only region))) 
-
--- TODO "unique" function that takes a prism and a foldable and fails in
--- MonadError if the result of filtering isn't unique.

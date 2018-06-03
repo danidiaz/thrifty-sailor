@@ -10,6 +10,7 @@ import System.FilePath
 import System.Environment
 import System.IO
 import Data.Aeson
+import Data.Monoid
 import qualified Data.Aeson.Encode.Pretty
 import Data.Function ((&))
 import Options.Applicative
@@ -23,6 +24,8 @@ import qualified Data.Text             as Text
 import ThriftySailor (Token
                      ,droplets
                      ,snapshots
+                     ,dropletName
+                     ,regionSlug
                      ,dropletsWithName
                      ,dropletsWithRegion
                      ,dropletStatus
@@ -132,21 +135,19 @@ defaultMainWith msgs = do
                                ++ Text.unpack confDropletName
                                ++ " in region "
                                ++ Text.unpack confRegionSlug
-               case dropletsWithName confDropletName ds of
-                    [] -> throwError (userError ("No candidate droplet."))
-                    _ : _ : _ -> throwError (userError ("More than one candidate droplet."))
-                    ds' -> case dropletsWithRegion confRegionSlug ds' of
-                        [] -> throwError (userError ("Droplet not in expected region."))
-                        _ : _ : _ -> error "never happens"
-                        [d] -> do
-                            hPutStrLn stderr $ "Target droplet found."                        
-                            let status = view dropletStatus d 
-                            hPutStrLn stderr $ "Droplet status is " ++ show status                        
-                            case view dropletStatus d of
-                                Active -> pure ()
-                                Off -> pure ()
-                                _ -> throwError (userError ("Droplet not in valid status for snapshot."))
-                            pure () 
+               let conditions = [ has $ dropletName.only confDropletName
+                                , has $ regionSlug.only confRegionSlug ]
+               d <- unique (\candidate -> alaf All foldMap ($ candidate) conditions)
+                           (userError . show)
+                           ds
+               hPutStrLn stderr $ "Target droplet found."                        
+               let status = view dropletStatus d
+               hPutStrLn stderr $ "Droplet status is " ++ show status                        
+               case view dropletStatus d of
+                   Active -> pure ()
+                   Off -> pure ()
+                   _ -> throwError (userError ("Droplet not in valid status for snapshot."))
+               pure () 
         _ -> 
             do (conf,token) <- load
                print $ conf

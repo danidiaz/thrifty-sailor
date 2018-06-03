@@ -14,6 +14,8 @@ ghcid and repls can be opened directly in Vim's :term
 
     :below terminal ++rows=10 ghcid --command="cabal new-repl lib:delays"
 
+    :below terminal ++rows=10 ghcid --command="cabal new-repl exe:thrifty-sailor"
+
     :below terminal ++close ++rows=10 cabal new-repl exe:thrifty-sailor
  
 To actually build and run:
