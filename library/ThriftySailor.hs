@@ -196,7 +196,7 @@ instance FromJSON Action where
                <*> v .: "status"
                <*> v .: "type"
                <*> v .: "started_at"
-               <*> v .: "completed_at"
+               <*> v .:? "completed_at"
                <*> v .:? "region_slug"
 
 newtype WrappedAction = WrappedAction { getAction :: Action } deriving Show
