@@ -138,6 +138,36 @@ instance FromJSON Snapshot where
                  <*> v .: "name"
                  <*> v .: "regions"
 
+data ActionStatus = ActionInProgress
+                  | ActionCompleted
+                  | ActionErrored
+                  deriving Show
+                   
+instance FromJSON ActionStatus where
+    parseJSON = withText "ActionStatus" $ \t -> 
+        case t of
+            "in-progress" -> pure ActionInProgress
+            "completed" -> pure ActionCompleted
+            "errored" -> pure ActionErrored
+            _ -> empty
+
+data ActionType = RebootAction
+                | PowerOffAction
+                | ShutdownAction
+                deriving Show
+
+instance FromJSON ActionType where
+    parseJSON = withText "ActionType" $ \t -> 
+        case t of
+            "shutdown" -> pure ShutdownAction
+            "reboot" -> pure RebootAction
+            "power-off" -> pure PowerOffAction
+            _ -> empty
+
+type ActionId = Integer
+
+--
+
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
