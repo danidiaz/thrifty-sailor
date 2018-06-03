@@ -25,9 +25,11 @@ import ThriftySailor (Token
                      ,droplets
                      ,snapshots
                      ,dropletName
+                     ,dropletId
                      ,regionSlug
                      ,dropletStatus
-                     ,DropletStatus(..))
+                     ,DropletStatus(..)
+                     ,shutdown)
 import ThriftySailor.Prelude
 
 data Config = Config 
@@ -142,7 +144,8 @@ defaultMainWith msgs = do
                let status = view dropletStatus d
                hPutStrLn stderr $ "Droplet status is " ++ show status ++ "."                        
                case view dropletStatus d of
-                   Active -> pure ()
+                   Active -> 
+                        do shutdown token (view dropletId d)
                    Off -> pure ()
                    _ -> throwError (userError ("Droplet not in valid status for snapshot."))
                pure () 

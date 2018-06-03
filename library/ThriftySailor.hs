@@ -22,6 +22,8 @@ module ThriftySailor (
     ,   snapshotId
     ,   snapshotName
     ,   snapshotRegionSlugs
+
+    ,   shutdown
     ) where
 
 import           Data.Foldable
@@ -166,13 +168,63 @@ instance FromJSON ActionType where
 
 type ActionId = Integer
 
+data Action = Action
+            {
+                _actionId :: ActionId
+            ,   _actionStatus :: ActionStatus 
+            ,   _actionType :: ActionType
+            ,   _actionStartedAt :: Text
+            ,   _actionCompletedAt :: Maybe Text
+            ,   _actionRegionSlug :: Maybe Text
+            } deriving Show
+
+actionId :: Lens' Action ActionId
+actionId f s = _actionId s & f <&> \a -> s { _actionId = a }
+
+actionStatus :: Lens' Action ActionStatus
+actionStatus f s = _actionStatus s & f <&> \a -> s { _actionStatus = a }
+
+actionType :: Lens' Action ActionType
+actionType f s = _actionType s & f <&> \a -> s { _actionType = a }
+
+actionRegionSlug :: Lens' Action (Maybe Text)
+actionRegionSlug f s = _actionRegionSlug s & f <&> \a -> s { _actionRegionSlug = a }
+
+instance FromJSON Action where
+    parseJSON = withObject "Action" $ \v -> 
+        Action <$> v .: "id"
+               <*> v .: "status"
+               <*> v .: "type"
+               <*> v .: "started_at"
+               <*> v .: "completed_at"
+               <*> v .:? "region_slug"
+
+newtype WrappedAction = WrappedAction { getAction :: Action } deriving Show
+
+instance FromJSON WrappedAction where
+    parseJSON = withObject "WrappedAction" $ \v -> 
+        WrappedAction <$> v .: "action"
+
 --
 
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
 shutdown :: Token -> DropletId -> IO () 
-shutdown _ _ = pure ()
+shutdown token dropletId' =
+    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId' ++"/actions")
+                                 [("type",["shutdown"])]
+                                 token
+       putStrLn $ "Initiated shutdown action " ++ show a
+       let actionId' = view actionId a
+       a2 <- action token actionId'
+       putStrLn $ "Checked again, and the result was: " ++ show a2
+       return ()
+
+action :: Token -> ActionId -> IO Action
+action token actionId' = 
+    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
+       return a
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
