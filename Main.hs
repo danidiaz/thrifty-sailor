@@ -26,8 +26,6 @@ import ThriftySailor (Token
                      ,snapshots
                      ,dropletName
                      ,regionSlug
-                     ,dropletsWithName
-                     ,dropletsWithRegion
                      ,dropletStatus
                      ,DropletStatus(..))
 import ThriftySailor.Prelude
@@ -142,7 +140,7 @@ defaultMainWith msgs = do
                            ds
                hPutStrLn stderr $ "Target droplet found."                        
                let status = view dropletStatus d
-               hPutStrLn stderr $ "Droplet status is " ++ show status                        
+               hPutStrLn stderr $ "Droplet status is " ++ show status ++ "."                        
                case view dropletStatus d of
                    Active -> pure ()
                    Off -> pure ()

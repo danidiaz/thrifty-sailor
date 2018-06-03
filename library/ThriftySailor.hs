@@ -22,14 +22,12 @@ module ThriftySailor (
     ,   snapshotId
     ,   snapshotName
     ,   snapshotRegionSlugs
-
-    ,   dropletsWithName
-    ,   dropletsWithRegion
     ) where
 
 import           Data.Foldable
 import           Data.Traversable
 import           Data.Aeson
+import           Data.Monoid
 import           Network.Wreq
 import           Control.Applicative
 import           Control.Lens
@@ -55,9 +53,11 @@ instance FromJSON Droplets where
     parseJSON = withObject "Droplets" $ \v -> 
         Droplets <$> v .: "droplets"
 
+type DropletId = Integer
+
 data Droplet = Droplet 
              {
-                _dropletId :: Integer
+                _dropletId :: DropletId
              ,  _dropletName :: Text
              ,  _regionSlug :: Text
              ,  _status :: DropletStatus
@@ -141,14 +141,26 @@ instance FromJSON Snapshot where
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
+shutdown :: Token -> DropletId -> IO () 
+shutdown _ _ = pure ()
+
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
 
-authorized :: String -> Network.Wreq.Options
-authorized token = set auth (Just (oauth2Bearer (Char8.pack token))) defaults
+authorized :: String -> Network.Wreq.Options -> Network.Wreq.Options
+authorized token = set auth (Just (oauth2Bearer (Char8.pack token)))
 
 doGET :: FromJSON a => RelUrl -> Token -> IO a 
 doGET relUrl token =  
-   do r <- getWith (authorized token) (baseUrl ++ relUrl)
+   do r <- getWith (authorized token defaults) (baseUrl ++ relUrl)
       view responseBody <$> asJSON r
+
+doPOST :: FromJSON a => RelUrl -> [(Text,[Text])] -> Token -> IO a 
+doPOST relUrl params token =  
+   do let options = alaf Endo foldMap (\(k,v) -> set (param k) v) params
+                  . authorized token 
+                  $ defaults
+      r <- postWith options (baseUrl ++ relUrl) (toJSON ())
+      view responseBody <$> asJSON r
+
 
