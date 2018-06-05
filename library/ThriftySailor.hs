@@ -37,6 +37,7 @@ import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
 import qualified Data.Text             as Text
 import           Control.Lens
+import           Control.Exception
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
@@ -219,12 +220,20 @@ shutdown token dropletId' =
        let actionId' = view actionId a
        a2 <- action token actionId'
        putStrLn $ "Checked again, and the result was: " ++ show a2
+       let retries = undefined --
        return ()
 
 action :: Token -> ActionId -> IO Action
 action token actionId' = 
     do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
        return a
+
+completed :: Action -> IO (Either () Action)
+completed action = 
+    case view actionStatus action of
+        ActionInProgress -> return $ Left () 
+        ActionCompleted  -> return $ Right action
+        ActionErrored    -> throwIO (userError ("Action error."))
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token

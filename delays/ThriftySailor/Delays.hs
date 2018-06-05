@@ -6,9 +6,12 @@ module ThriftySailor.Delays (
    , factor
    , waits
    , giveUp
+   , retries
+   , S.effects
 ) where
 
 import           Control.Concurrent
+import           Control.Monad
 import           Data.Fixed
 import           Data.Time.Clock
 import           Streaming
@@ -42,6 +45,10 @@ waits minDelay (Factor f) maxDelay =
            . takeWhile (< floatify maxDelay) 
            $ iterate (*f) (floatify minDelay) 
     floatify = fromIntegral . (*1e6) . getSeconds
+                
+retries :: IO (Either x a) -> Stream (Of ()) IO a -> Stream (Of x) IO a
+retries action waits' = 
+    S.zipWith  (\x _ -> x) (S.untilRight action) waits'
 
 giveUp :: Seconds -> Stream (Of a) IO r -> Stream (Of a) IO (Either () r)  
 giveUp (Seconds s) stream = 
@@ -54,4 +61,3 @@ giveUp (Seconds s) stream =
                            then Right ()
                            else Left ()
     S.zipWith (\_ a -> a) (Left <$> tiredOfWaiting) (Right <$> stream)
-                
