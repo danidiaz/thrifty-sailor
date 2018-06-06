@@ -38,6 +38,8 @@ import           Data.Text (Text)
 import qualified Data.Text             as Text
 import           Control.Lens
 import           Control.Exception
+import           ThriftySailor.Delays
+import           ThriftySailor.Prelude
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
@@ -211,7 +213,7 @@ instance FromJSON WrappedAction where
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
-shutdown :: Token -> DropletId -> IO () 
+shutdown :: Token -> DropletId -> IO Action
 shutdown token dropletId' =
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId' ++"/actions")
                                  [("type",["shutdown"])]
@@ -220,13 +222,13 @@ shutdown token dropletId' =
        let actionId' = view actionId a
        a2 <- action token actionId'
        putStrLn $ "Checked again, and the result was: " ++ show a2
-       let retries = undefined --
-       return ()
+       retres <- effects
+               . giveUp (seconds 360)
+               . retrying (waits (seconds 1) (factor 1.3) (seconds 15)) 
+               $ do a <- action token actionId'
+                    completed a
+       eitherError (const (userError ("Timeout waiting for action to complete."))) retres
 
-action :: Token -> ActionId -> IO Action
-action token actionId' = 
-    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
-       return a
 
 completed :: Action -> IO (Either () Action)
 completed action = 
@@ -234,6 +236,13 @@ completed action =
         ActionInProgress -> return $ Left () 
         ActionCompleted  -> return $ Right action
         ActionErrored    -> throwIO (userError ("Action error."))
+
+action :: Token -> ActionId -> IO Action
+action token actionId' = 
+    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
+       putStrLn $ show a
+       return a
+
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token

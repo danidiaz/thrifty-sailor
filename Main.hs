@@ -146,6 +146,7 @@ defaultMainWith msgs = do
                case view dropletStatus d of
                    Active -> 
                         do shutdown token (view dropletId d)
+                           pure ()
                    Off -> pure ()
                    _ -> throwError (userError ("Droplet not in valid status for snapshot."))
                pure () 

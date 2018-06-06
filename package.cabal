@@ -58,7 +58,9 @@ library
         wreq            >=0.5.2.1,
         transformers    >=0.5.5.0,
         mtl             >=2.2.2,
-        formatting      >=6.3.2
+        formatting      >=6.3.2,
+        delays,
+        prelude
   hs-source-dirs:      library
   default-language:    Haskell2010
 
