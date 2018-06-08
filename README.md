@@ -24,6 +24,8 @@ To actually build and run:
 
     cabal new-run exe:thrifty-sailor -- status
 
+    cabal new-run exe:thrifty-sailor -- down
+
 ## Digital Ocean API
 
 [API V2](https://developers.digitalocean.com/documentation/v2/)

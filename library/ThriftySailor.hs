@@ -199,7 +199,7 @@ instance FromJSON Action where
                <*> v .: "status"
                <*> v .: "type"
                <*> v .: "started_at"
-               <*> v .:? "completed_at"
+               <*> v .:? "isComplete_at"
                <*> v .:? "region_slug"
 
 newtype WrappedAction = WrappedAction { getAction :: Action } deriving Show
@@ -218,20 +218,23 @@ shutdown token dropletId' =
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId' ++"/actions")
                                  [("type",["shutdown"])]
                                  token
-       putStrLn $ "Initiated shutdown action " ++ show a
-       let actionId' = view actionId a
+       putStrLn $ "Initiated shutdown action: " ++ show a
+       complete token a
+
+complete :: Token -> Action -> IO Action
+complete token a =
+    do let actionId' = view actionId a
        a2 <- action token actionId'
        putStrLn $ "Checked again, and the result was: " ++ show a2
-       retres <- effects
-               . giveUp (seconds 360)
-               . retrying (waits (seconds 1) (factor 1.3) (seconds 15)) 
-               $ do a <- action token actionId'
-                    completed a
-       eitherError (const (userError ("Timeout waiting for action to complete."))) retres
+       retries <- effects
+                . giveUp (seconds 360)
+                . retrying (waits (seconds 1) (factor 1.3) (seconds 15)) 
+                $ do a <- action token actionId'
+                     isComplete a
+       eitherError (const (userError ("Timeout waiting for action to complete."))) retries
 
-
-completed :: Action -> IO (Either () Action)
-completed action = 
+isComplete :: Action -> IO (Either () Action)
+isComplete action = 
     case view actionStatus action of
         ActionInProgress -> return $ Left () 
         ActionCompleted  -> return $ Right action
@@ -240,9 +243,7 @@ completed action =
 action :: Token -> ActionId -> IO Action
 action token actionId' = 
     do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
-       putStrLn $ show a
        return a
-
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
