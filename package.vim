@@ -20,4 +20,4 @@ function! GHCId(which)
     execute "below terminal ++rows=10 ghcid --command=\"cabal new-repl" l:target "\""
 endfunction
 
-command! -nargs=1 GHCId call GHCId(<args>) 
+command! -nargs=1 GHCId call GHCId("<args>") 
