@@ -33,7 +33,10 @@ factor r = Factor $
         then error $ "wrong factor range" ++ show r
         else r
 
-waits :: Seconds -> Factor -> Seconds -> Stream (Of ()) IO r
+waits :: Seconds -- inital single wait length
+      -> Factor -- multiplication factor
+      -> Seconds -- maximum single wait lenght 
+      -> Stream (Of ()) IO r
 waits minDelay (Factor f) maxDelay = 
     do S.for (S.each values)
              (\t -> do liftIO (threadDelay t)

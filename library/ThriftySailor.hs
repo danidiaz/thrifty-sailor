@@ -173,6 +173,18 @@ instance FromJSON ActionStatus where
             "errored" -> pure ActionErrored
             _ -> empty
 
+_ActionInProgress :: Traversal' ActionStatus ()
+_ActionInProgress f = \case ActionInProgress -> pure ActionInProgress <* f ()
+                            other -> pure other
+
+_ActionCompleted :: Traversal' ActionStatus ()
+_ActionCompleted f = \case ActionCompleted -> pure ActionCompleted <* f ()
+                           other -> pure other
+
+_ActionErrored :: Traversal' ActionStatus ()
+_ActionErrored f = \case ActionErrored -> pure ActionErrored <* f ()
+                         other -> pure other
+
 data ActionType = RebootAction
                 | PowerOffAction
                 | ShutdownAction
@@ -231,8 +243,6 @@ instance FromJSON WrappedAction where
     parseJSON = withObject "WrappedAction" $ \v -> 
         WrappedAction <$> v .: "action"
 
---
-
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
@@ -242,7 +252,9 @@ shutdown token dropletId' =
                                  [("type",["shutdown"])]
                                  token
        putStrLn $ "Initiated shutdown action: " ++ show a
-       complete token a
+       complete (actionStatus._ActionErrored)
+                (actionStatus._ActionInProgress)
+                (action token (view actionId a))
 
 type SnapshotName = Text 
 
@@ -252,7 +264,9 @@ snapshot token dropletId0 name =
                                  [("type",["snapshot"]),("name",[name])]
                                  token
        putStrLn $ "Initiated snapshot action: " ++ show a
-       complete token a
+       complete (actionStatus._ActionErrored)
+                (actionStatus._ActionInProgress)
+                (action token (view actionId a))
 
 deleteDroplet :: Token -> DropletId -> IO ()
 deleteDroplet token dropletId0 = 
@@ -264,7 +278,6 @@ deleteSnapshot token snapshotId0 =
     do doDELETE ("/v2/snapshots/" ++Data.Text.unpack snapshotId0) token
        return ()
 
--- unhappy about this
 data DropletCreation = DropletCreation
                    {
                         _dropletCreationName :: Text
@@ -282,16 +295,16 @@ createDroplet token dc =
                                   ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
                                   ]
                                   token
-       complete' (dropletStatus._Void.united)
-                 (dropletStatus._Active)
-                 (droplet token (view dropletId d))
+       complete (dropletStatus._Void.united)
+                (dropletStatus._Active)
+                (droplet token (view dropletId d))
 
-complete' :: Show a 
-          => (Fold a ()) -- ^ error check
-          -> (Fold a ()) -- ^ completion check
-          -> IO a 
-          -> IO a
-complete' errCheck doneCheck action =
+complete :: Show a 
+         => (Fold a ()) -- ^ error check
+         -> (Fold a ()) -- ^ completion check
+         -> IO a 
+         -> IO a
+complete errCheck doneCheck action =
     do retries <- effects
                 . giveUp (seconds 360)
                 . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
@@ -303,24 +316,6 @@ complete' errCheck doneCheck action =
                                 then Right a
                                 else Left ()
        eitherError (const (userError ("Timeout waiting."))) retries
-
-complete :: Token -> Action -> IO Action
-complete token a =
-    do retries <- effects
-                . giveUp (seconds 360)
-                . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
-                $ do let actionId' = view actionId a
-                     a <- action token actionId'
-                     putStrLn $ "Checked again, and the result was: " ++ show a
-                     isComplete a
-       eitherError (const (userError ("Timeout waiting for action to complete."))) retries
-
-isComplete :: Action -> IO (Either () Action)
-isComplete action = 
-    case view actionStatus action of
-        ActionInProgress -> return $ Left () 
-        ActionCompleted  -> return $ Right action
-        ActionErrored    -> throwIO (userError ("Action error."))
 
 action :: Token -> ActionId -> IO Action
 action token actionId0 = 
@@ -335,7 +330,7 @@ droplet token dropletId0 =
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
 
-authorized :: String -> Network.Wreq.Options -> Network.Wreq.Options
+authorized :: Token -> Network.Wreq.Options -> Network.Wreq.Options
 authorized token = set auth (Just (oauth2Bearer (Char8.pack token)))
 
 doGET :: FromJSON a => RelUrl -> Token -> IO a 
@@ -355,5 +350,4 @@ doDELETE :: RelUrl -> Token -> IO ()
 doDELETE relUrl token = 
     do deleteWith (authorized token defaults) (baseUrl ++ relUrl)
        pure ()
-
 
