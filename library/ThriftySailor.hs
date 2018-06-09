@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 module ThriftySailor (
         Token
+
     ,   droplets
 
     ,   Droplet
@@ -18,6 +19,12 @@ module ThriftySailor (
     ,   _Off
     ,   _Archive 
 
+    ,   shutdown
+    ,   snapshot
+    ,   deleteDroplet
+    ,   DropletCreation(..)
+    ,   createDroplet
+
     ,   snapshots
 
     ,   Snapshot
@@ -25,11 +32,6 @@ module ThriftySailor (
     ,   snapshotName
     ,   snapshotRegionSlugs
 
-    ,   shutdown
-    ,   snapshot
-    ,   deleteDroplet
-    ,   DropletCreation(..)
-    ,   createDroplet
     ,   deleteSnapshot
     ) where
 
@@ -37,27 +39,19 @@ import           Data.Foldable
 import           Data.Traversable
 import           Data.Aeson
 import           Data.Monoid
-import           Network.Wreq
 import           Control.Applicative
 import           Control.Monad
 import           Control.Lens hiding ((.=))
-import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
 import qualified Data.Text
 import           Control.Exception
 import           ThriftySailor.Delays
 import           ThriftySailor.Prelude
+import           ThriftySailor.Network (doGET,doPOST,doDELETE,Token)
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
 -- | https://developers.digitalocean.com/documentation/v2/#list-all-droplets
-
-type Token = String
-
-type RelUrl = String
-
-baseUrl :: String
-baseUrl = "https://api.digitalocean.com"
 
 newtype Droplets = Droplets { getDroplets :: [Droplet] } deriving Show
 
@@ -253,7 +247,7 @@ shutdown token dropletId' =
                                  token
        putStrLn $ "Initiated shutdown action: " ++ show a
        complete (actionStatus._ActionErrored)
-                (actionStatus._ActionInProgress)
+                (actionStatus._ActionCompleted)
                 (action token (view actionId a))
 
 type SnapshotName = Text 
@@ -265,7 +259,7 @@ snapshot token dropletId0 name =
                                  token
        putStrLn $ "Initiated snapshot action: " ++ show a
        complete (actionStatus._ActionErrored)
-                (actionStatus._ActionInProgress)
+                (actionStatus._ActionCompleted)
                 (action token (view actionId a))
 
 deleteDroplet :: Token -> DropletId -> IO ()
@@ -295,6 +289,7 @@ createDroplet token dc =
                                   ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
                                   ]
                                   token
+       putStrLn $ "Initiated droplet creation: " ++ show d
        complete (dropletStatus._Void.united)
                 (dropletStatus._Active)
                 (droplet token (view dropletId d))
@@ -329,25 +324,4 @@ droplet token dropletId0 =
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
-
-authorized :: Token -> Network.Wreq.Options -> Network.Wreq.Options
-authorized token = set auth (Just (oauth2Bearer (Char8.pack token)))
-
-doGET :: FromJSON a => RelUrl -> Token -> IO a 
-doGET relUrl token =  
-   do r <- getWith (authorized token defaults) (baseUrl ++ relUrl)
-      view responseBody <$> asJSON r
-
-doPOST :: FromJSON a => RelUrl -> [(Text,[Text])] -> Token -> IO a 
-doPOST relUrl params token =  
-   do let options = alaf Endo foldMap (\(k,v) -> set (param k) v) params
-                  . authorized token 
-                  $ defaults
-      r <- postWith options (baseUrl ++ relUrl) (toJSON ())
-      view responseBody <$> asJSON r
-
-doDELETE :: RelUrl -> Token -> IO ()
-doDELETE relUrl token = 
-    do deleteWith (authorized token defaults) (baseUrl ++ relUrl)
-       pure ()
 

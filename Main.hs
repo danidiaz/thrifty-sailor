@@ -11,16 +11,16 @@ import System.Environment
 import System.IO
 import Data.Aeson
 import Data.Monoid
+import Control.Monad.Except
 import qualified Data.Text.Read
 import qualified Data.Aeson.Encode.Pretty
 import Data.Function ((&))
 import Options.Applicative
-import Control.Monad.Except
 import Control.Lens hiding ((.=))
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
-import qualified Data.Text             as Text
+import qualified Data.Text as Text
 
 import ThriftySailor (Token
                      ,droplets
