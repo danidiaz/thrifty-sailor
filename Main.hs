@@ -32,7 +32,8 @@ import ThriftySailor (Token
                      ,snapshotName
                      ,snapshotRegionSlugs
                      ,shutdown
-                     ,snapshot)
+                     ,snapshot
+                     ,deleteDroplet)
 import ThriftySailor.Prelude
 
 data Config = Config 
@@ -161,8 +162,11 @@ defaultMainWith msgs = do
                            pure ()
                    Off -> pure ()
                    _ -> throwError (userError ("Droplet not in valid status for snapshot."))
+               hPutStrLn stderr $ "Taking snapshot..." 
                snapshot token (view dropletId d) confSnapshotName 
-               pure () 
+               hPutStrLn stderr $ "Deleting droplet..." 
+               deleteDroplet token (view dropletId d)
+               hPutStrLn stderr $ "Done."
         _ -> 
             do (conf,token) <- load
                print $ conf

@@ -25,6 +25,7 @@ module ThriftySailor (
 
     ,   shutdown
     ,   snapshot
+    ,   deleteDroplet
     ) where
 
 import           Data.Foldable
@@ -238,6 +239,11 @@ snapshot token dropletId0 name =
        putStrLn $ "Initiated snapshot action: " ++ show a
        complete token a
 
+deleteDroplet :: Token -> DropletId -> IO ()
+deleteDroplet token dropletId0 = 
+    do doDELETE ("/v2/droplets/" ++show dropletId0) token
+       return ()
+
 complete :: Token -> Action -> IO Action
 complete token a =
     do let actionId' = view actionId a
@@ -279,5 +285,10 @@ doPOST relUrl params token =
                   $ defaults
       r <- postWith options (baseUrl ++ relUrl) (toJSON ())
       view responseBody <$> asJSON r
+
+doDELETE :: RelUrl -> Token -> IO ()
+doDELETE relUrl token = 
+    do deleteWith (authorized token defaults) (baseUrl ++ relUrl)
+       pure ()
 
 
