@@ -1,63 +1,33 @@
 # thrifty-sailor
 
-## Build / Devel
+## What's this?
 
-    ghcid --command="cabal new-repl exe:thrifty-sailor"
+A command-line tool for making a snapshot of a Digital Ocean droplet and
+destroying the droplet afterwards. Also works in reverse direction: restore a
+droplet from a snapshot and destroy the snapshot afterwards.
 
-    ghcid --command="cabal new-repl lib:thrifty-sailor"
+## Why do that?
 
-    ghcid --command="cabal new-repl lib:delays"
+For saving money, when you don't need to have a droplet active all the time.
 
-    ghcid --command="cabal new-repl lib:prelude"
+At the time of writing this, the cheapest droplet—with 25 GB disk space—costs
+$5/mo. It will be billed even when it is off.
 
-ghcid and repls can be opened directly in Vim's :term
+Meanwhile, snapshot cost is based on space used and charged at a rate of
+$0.05/GB/mo. Even if you use the full 25 GB disk, that will be $1.25/mo.
 
-    :below terminal ++rows=10 ghcid --command="cabal new-repl lib:delays"
+So, if you have a pet development droplet, it is cheaper to keep it as an
+snapshot while you are not using it. But the cycle of snapshotting, deleting
+droplet, restoring droplet and deleting snapshot is tedious to perform through
+the web interface.
 
-    :below terminal ++rows=10 ghcid --command="cabal new-repl exe:thrifty-sailor"
+## Can't I do that with doctl?
 
-    :below terminal ++close ++rows=10 cabal new-repl exe:thrifty-sailor
- 
-To actually build and run:
+Yes. I just decided to reinvent the wheel for educational purposes.
 
-    cabal new-build
+Here's a [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client).
 
-    cabal new-run exe:thrifty-sailor -- status
-
-    cabal new-run exe:thrifty-sailor -- down
-
-## Digital Ocean API
-
-[API V2](https://developers.digitalocean.com/documentation/v2/)
-
-[Snapshots and regions.](https://www.digitalocean.com/community/tutorials/how-to-migrate-digitalocean-droplets-using-snapshots#step-2-%E2%80%94-adding-the-snapshot-to-new-region-(optional))
-
-It seems that the same snapshot can be present [in multiple regions](https://developers.digitalocean.com/documentation/v2/#list-all-droplet-snapshots):
-
-> An array of the regions that the image is available in. The regions are
-> represented by their identifying slug values.
-
-I gather that [taking a new snapshot from a
-droplet](https://developers.digitalocean.com/documentation/v2/#snapshot-a-droplet)
-always happens in the *particular* region associated to the droplet?
-
-And creating a droplet [requires you to specify a region](https://developers.digitalocean.com/documentation/v2/#create-a-new-droplet).
-
-We can name snapshots. Snapshots can have the same name as droplets.
-
-Snapshot ids are strings, droplets ids are ints. Don't ask me why.
-
-Droplet names need not be unique.
-
-[Error Retries and Exponential Backoff in AWS](https://docs.aws.amazon.com/general/latest/gr/api-retries.html)
-
-[Truncated exponential backoff](https://cloud.google.com/storage/docs/exponential-backoff)
-
-# Alternative: doctl
-
-[doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client)
-
-doctl examples:
+Here are some doctl example commands:
 
     doctl compute droplet list
     doctl compute droplet get 11111111
@@ -66,3 +36,49 @@ doctl examples:
     doctl compute snapshot list
     doctl compute snapshot get 11111111 --verbose
     doctl compute snapshot delete 11111111 --force
+
+## Ok, I want to use this anyway, how to build & install it?
+
+You'll need [cabal-install >= 2.0](https://www.haskell.org/cabal/download.html).
+
+--TBD
+
+## How to configure it, once installed?
+
+You must have a Digital Ocean token in an environment variable.
+
+First, execute:
+
+    thrifty-sailor example
+
+It will spit out an example JSON configuration file in stdout. Copy it to 
+
+    $HOME/.config/thrifty-sailor/config.json 
+    
+As the value of `token_environment_variable` put the name of the environment
+variable holding the Digital Ocean token.
+
+Then run
+
+    thrifty-sailor status
+
+A list of your droplets and snapshots will appear on stdout. Select the one you
+want to target and write its "droplet_name", "region_slug" and "size_slug" in
+the configuration file.
+
+Finally, in the "snapshot_name" of the configuration file, write the name you
+want to give to the snapshot that will be generated.
+
+Having done this, invoking
+
+    thrifty-sailor down
+
+will shut down the droplet, snapshot it, and delete the droplet.
+
+And invoking
+
+    thrifty-sailor up 
+
+will restore the snapshot, wait until the droplet is active, and delete the
+snapshot.
+
