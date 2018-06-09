@@ -75,12 +75,12 @@ Having done this, invoking
 
     thrifty-sailor down
 
-will shut down the droplet, snapshot it, and delete the droplet.
+will shut down the target droplet, snapshot it, and delete the droplet.
 
 And invoking
 
     thrifty-sailor up 
 
-will restore the snapshot, wait until the droplet is active, and delete the
-snapshot.
+will restore the droplet from the snapshot, wait until the droplet is active,
+and delete the snapshot.
 
