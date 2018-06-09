@@ -7,10 +7,10 @@ module ThriftySailor.Prelude (
     ,   absent
     ) where
 
-import Control.Monad.Except 
-import Data.Bifunctor
-import Data.Foldable
-import Data.List.NonEmpty
+import           Control.Monad.Except 
+import           Data.Bifunctor
+import           Data.Foldable
+import           Data.List.NonEmpty
 
 eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
 eitherError f = either throwError return . first f

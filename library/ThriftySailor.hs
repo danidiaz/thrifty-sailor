@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module ThriftySailor (
         Token
     ,   droplets
@@ -26,6 +27,8 @@ module ThriftySailor (
     ,   shutdown
     ,   snapshot
     ,   deleteDroplet
+    ,   DropletCreation(..)
+    ,   createDroplet
     ) where
 
 import           Data.Foldable
@@ -34,11 +37,10 @@ import           Data.Aeson
 import           Data.Monoid
 import           Network.Wreq
 import           Control.Applicative
-import           Control.Lens
+import           Control.Lens hiding ((.=))
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
 import qualified Data.Text
-import           Control.Lens
 import           Control.Exception
 import           ThriftySailor.Delays
 import           ThriftySailor.Prelude
@@ -67,6 +69,7 @@ data Droplet = Droplet
                 _dropletId :: DropletId
              ,  _dropletName :: Text
              ,  _regionSlug :: Text
+             ,  _sizeSlug :: Text
              ,  _status :: DropletStatus
              } deriving Show
 
@@ -88,6 +91,7 @@ instance FromJSON Droplet where
                 <*> v .: "name"
                 <*> do region <- v .: "region"
                        region .: "slug"
+                <*> v .: "size_slug"
                 <*> v .: "status"
 
 data DropletStatus = New | Active | Off | Archive deriving (Show,Eq)
@@ -116,6 +120,12 @@ instance FromJSON DropletStatus where
             "off" -> pure Off
             "archive" -> pure Archive
             _ -> empty
+
+newtype WrappedDroplet = WrappedDroplet { getDroplet :: Droplet } deriving Show
+
+instance FromJSON WrappedDroplet where
+    parseJSON = withObject "WrappedDroplet" $ \v -> 
+        WrappedDroplet <$> v .: "droplet"
 
 newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
 
@@ -243,6 +253,26 @@ deleteDroplet :: Token -> DropletId -> IO ()
 deleteDroplet token dropletId0 = 
     do doDELETE ("/v2/droplets/" ++show dropletId0) token
        return ()
+
+-- unhappy about this
+data DropletCreation = DropletCreation
+                   {
+                        _dropletCreationName :: Text
+                   ,    _dropletCreationRegionSlug :: Text
+                   ,    _dropletCreationSizeSlug :: Text      
+                   ,    _dropletCreationSnapshotId :: Integer -- public images currently not supported
+                   } deriving Show
+
+createDroplet :: Token -> DropletCreation -> IO Droplet
+createDroplet token dc = 
+    do WrappedDroplet d <- doPOST ("/v2/droplets/") 
+                                  [("name",[_dropletCreationName dc])
+                                  ,("region",[_dropletCreationRegionSlug dc])
+                                  ,("size",[_dropletCreationSizeSlug dc])
+                                  ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
+                                  ]
+                                  token
+       return d
 
 complete :: Token -> Action -> IO Action
 complete token a =

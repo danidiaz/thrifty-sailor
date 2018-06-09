@@ -11,6 +11,7 @@ import System.Environment
 import System.IO
 import Data.Aeson
 import Data.Monoid
+import qualified Data.Text.Read
 import qualified Data.Aeson.Encode.Pretty
 import Data.Function ((&))
 import Options.Applicative
@@ -30,18 +31,23 @@ import ThriftySailor (Token
                      ,dropletStatus
                      ,DropletStatus(..)
                      ,snapshotName
+                     ,snapshotId
                      ,snapshotRegionSlugs
                      ,shutdown
                      ,snapshot
-                     ,deleteDroplet)
+                     ,deleteDroplet
+                     ,DropletCreation(..)
+                     ,createDroplet)
 import ThriftySailor.Prelude
 
+-- many attributes here are similar to the droplet creation request...
 data Config = Config 
             { 
                 doTokenEnvVar :: String 
             ,   confDropletName :: Text 
             ,   confSnapshotName :: Text
             ,   confRegionSlug :: Text
+            ,   confSizeSlug :: Text
             } deriving (Eq,Show)
 
 sample :: Config
@@ -49,6 +55,7 @@ sample = Config "DIGITAL_OCEAN_TOKEN"
                 "dummy_droplet_name"
                 "dummy_snapshot_name"
                 "ams3"
+                "s-1vcpu-1gb"
 
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \v -> 
@@ -56,13 +63,15 @@ instance FromJSON Config where
                <*> v .: "droplet_name"
                <*> v .: "snapshot_name"
                <*> v .: "region_slug"
+               <*> v .: "size_slug"
 
 instance ToJSON Config where
-    toJSON (Config {doTokenEnvVar,confDropletName,confSnapshotName,confRegionSlug}) =
+    toJSON (Config {doTokenEnvVar,confDropletName,confSnapshotName,confRegionSlug,confSizeSlug}) =
           object [ "token_environment_variable" .= doTokenEnvVar
                  , "droplet_name" .= confDropletName
                  , "snapshot_name" .= confSnapshotName
                  , "region_slug" .= confRegionSlug
+                 , "size_slug" .= confSizeSlug
                  ]
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
@@ -149,7 +158,7 @@ defaultMainWith msgs = do
                hPutStrLn stderr $ "Droplet status is " ++ show status ++ "."                        
                hPutStrLn stderr $ "Checking that snapshot with name " 
                                ++ Text.unpack confSnapshotName
-                               ++ " doens't already exist."
+                               ++ " doesn't already exist."
                let snapshotConditions = [ has $ snapshotName.only confSnapshotName
                                         , has $ snapshotRegionSlugs.folded.only confRegionSlug ]
                ss <- snapshots token
@@ -167,11 +176,40 @@ defaultMainWith msgs = do
                hPutStrLn stderr $ "Deleting droplet..." 
                deleteDroplet token (view dropletId d)
                hPutStrLn stderr $ "Done."
-        _ -> 
+        Up -> 
             do (conf,token) <- load
-               print $ conf
-               print $ token
-    return ()
+               let Config {confDropletName,confRegionSlug,confSnapshotName,confSizeSlug} = conf
+               hPutStrLn stderr $ "Looking for snapshot with name " 
+                               ++ Text.unpack confSnapshotName
+                               ++ " in region "
+                               ++ Text.unpack confRegionSlug
+               let snapshotConditions = [ has $ snapshotName.only confSnapshotName
+                                        , has $ snapshotRegionSlugs.folded.only confRegionSlug ]
+               ss <- snapshots token
+               s <- unique (\candidate -> alaf All foldMap ($ candidate) snapshotConditions)
+                           (userError . show)
+                           ss
+               hPutStrLn stderr $ "Target snapshot found."                        
+               hPutStrLn stderr $ "Checking that droplet with name " 
+                               ++ Text.unpack confDropletName
+                               ++ " doesn't exist in region."
+                               ++ Text.unpack confRegionSlug
+               let conditions = [ has $ dropletName.only confDropletName
+                                , has $ regionSlug.only confRegionSlug ]
+               ds <- droplets token
+               absent (\candidate -> alaf All foldMap ($ candidate) conditions)
+                      (userError . show)
+                      ds
+               hPutStrLn stderr $ "Restoring droplet..."                        
+               let Right (snapshotId',_) = Data.Text.Read.decimal (view snapshotId s)
+               d <- createDroplet token   
+                                  (DropletCreation confDropletName
+                                                   confRegionSlug  
+                                                   confSizeSlug
+                                                   snapshotId')
+               hPutStrLn stderr $ show d
+               pure ()
+    pure ()
   where
     xdgConfPath :: IO FilePath
     xdgConfPath = do
