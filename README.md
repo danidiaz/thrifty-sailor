@@ -16,7 +16,7 @@ $5/mo. It will be billed even when it is off.
 Meanwhile, snapshot cost is based on space used, and it's charged at a rate of
 $0.05/GB/mo. Even if you use the full 25 GB disk, that will be $1.25/mo.
 
-So, if you have a pet development droplet, it is cheaper to keep it as an
+So, if you have a pet development droplet, it is cheaper to keep it as a
 snapshot while you are not using it. But the cycle of snapshotting, deleting
 the droplet, restoring the droplet and deleting the snapshot is tedious to
 perform through the web interface.
