@@ -36,6 +36,7 @@ import ThriftySailor (Token
                      ,shutdown
                      ,snapshot
                      ,deleteDroplet
+                     ,deleteSnapshot
                      ,DropletCreation(..)
                      ,createDroplet)
 import ThriftySailor.Prelude
@@ -207,8 +208,9 @@ defaultMainWith msgs = do
                                                    confRegionSlug  
                                                    confSizeSlug
                                                    snapshotId')
-               hPutStrLn stderr $ show d
-               pure ()
+               hPutStrLn stderr $ "Deleting snapshot..." 
+               deleteSnapshot token (view snapshotId s)
+               hPutStrLn stderr $ "Done."
     pure ()
   where
     xdgConfPath :: IO FilePath

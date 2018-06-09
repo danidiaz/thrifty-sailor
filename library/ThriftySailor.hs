@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RankNTypes #-}
 module ThriftySailor (
         Token
     ,   droplets
@@ -29,6 +30,7 @@ module ThriftySailor (
     ,   deleteDroplet
     ,   DropletCreation(..)
     ,   createDroplet
+    ,   deleteSnapshot
     ) where
 
 import           Data.Foldable
@@ -37,6 +39,7 @@ import           Data.Aeson
 import           Data.Monoid
 import           Network.Wreq
 import           Control.Applicative
+import           Control.Monad
 import           Control.Lens hiding ((.=))
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
@@ -132,6 +135,8 @@ newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
 instance FromJSON Snapshots where
     parseJSON = withObject "Snapshots" $ \v -> 
         Snapshots <$> v .: "snapshots"
+
+type SnapshotId = Text
 
 data Snapshot = Snapshot
               {
@@ -254,6 +259,11 @@ deleteDroplet token dropletId0 =
     do doDELETE ("/v2/droplets/" ++show dropletId0) token
        return ()
 
+deleteSnapshot :: Token -> SnapshotId -> IO ()
+deleteSnapshot token snapshotId0 = 
+    do doDELETE ("/v2/snapshots/" ++Data.Text.unpack snapshotId0) token
+       return ()
+
 -- unhappy about this
 data DropletCreation = DropletCreation
                    {
@@ -272,15 +282,35 @@ createDroplet token dc =
                                   ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
                                   ]
                                   token
-       return d
+       complete' (dropletStatus._Void.united)
+                 (dropletStatus._Active)
+                 (droplet token (view dropletId d))
+
+complete' :: Show a 
+          => (Fold a ()) -- ^ error check
+          -> (Fold a ()) -- ^ completion check
+          -> IO a 
+          -> IO a
+complete' errCheck doneCheck action =
+    do retries <- effects
+                . giveUp (seconds 360)
+                . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
+                $ do a <- action
+                     putStrLn $ "Checked again, and the result was: " ++ show a
+                     when (has errCheck a) 
+                          (throwIO (userError ("Action error.")))
+                     pure $ if has doneCheck a
+                                then Right a
+                                else Left ()
+       eitherError (const (userError ("Timeout waiting."))) retries
 
 complete :: Token -> Action -> IO Action
 complete token a =
-    do let actionId' = view actionId a
-       retries <- effects
+    do retries <- effects
                 . giveUp (seconds 360)
                 . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
-                $ do a <- action token actionId'
+                $ do let actionId' = view actionId a
+                     a <- action token actionId'
                      putStrLn $ "Checked again, and the result was: " ++ show a
                      isComplete a
        eitherError (const (userError ("Timeout waiting for action to complete."))) retries
@@ -293,9 +323,14 @@ isComplete action =
         ActionErrored    -> throwIO (userError ("Action error."))
 
 action :: Token -> ActionId -> IO Action
-action token actionId' = 
-    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId') token
+action token actionId0 = 
+    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId0) token
        return a
+
+droplet :: Token -> DropletId -> IO Droplet
+droplet token dropletId0 = 
+    do WrappedDroplet d <- doGET ("/v2/droplets/" ++ show dropletId0) token
+       return d
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
