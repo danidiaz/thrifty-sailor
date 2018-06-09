@@ -241,12 +241,11 @@ snapshot token dropletId0 name =
 complete :: Token -> Action -> IO Action
 complete token a =
     do let actionId' = view actionId a
-       a2 <- action token actionId'
-       putStrLn $ "Checked again, and the result was: " ++ show a2
        retries <- effects
                 . giveUp (seconds 360)
-                . retrying (waits (seconds 1) (factor 1.3) (seconds 15)) 
+                . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
                 $ do a <- action token actionId'
+                     putStrLn $ "Checked again, and the result was: " ++ show a
                      isComplete a
        eitherError (const (userError ("Timeout waiting for action to complete."))) retries
 
