@@ -24,6 +24,7 @@ module ThriftySailor (
     ,   snapshotRegionSlugs
 
     ,   shutdown
+    ,   snapshot
     ) where
 
 import           Data.Foldable
@@ -35,7 +36,7 @@ import           Control.Applicative
 import           Control.Lens
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Text (Text)            
-import qualified Data.Text             as Text
+import qualified Data.Text
 import           Control.Lens
 import           Control.Exception
 import           ThriftySailor.Delays
@@ -159,6 +160,7 @@ instance FromJSON ActionStatus where
 data ActionType = RebootAction
                 | PowerOffAction
                 | ShutdownAction
+                | SnapshotAction
                 deriving Show
 
 instance FromJSON ActionType where
@@ -167,6 +169,7 @@ instance FromJSON ActionType where
             "shutdown" -> pure ShutdownAction
             "reboot" -> pure RebootAction
             "power-off" -> pure PowerOffAction
+            "snapshot" -> pure SnapshotAction
             _ -> empty
 
 type ActionId = Integer
@@ -179,6 +182,8 @@ data Action = Action
             ,   _actionStartedAt :: Text
             ,   _actionCompletedAt :: Maybe Text
             ,   _actionRegionSlug :: Maybe Text
+            ,   _actionResourceId :: Integer
+            ,   _actionResourceType :: Text
             } deriving Show
 
 actionId :: Lens' Action ActionId
@@ -201,6 +206,8 @@ instance FromJSON Action where
                <*> v .: "started_at"
                <*> v .:? "isComplete_at"
                <*> v .:? "region_slug"
+               <*> v .: "resource_id"
+               <*> v .: "resource_type"
 
 newtype WrappedAction = WrappedAction { getAction :: Action } deriving Show
 
@@ -219,6 +226,16 @@ shutdown token dropletId' =
                                  [("type",["shutdown"])]
                                  token
        putStrLn $ "Initiated shutdown action: " ++ show a
+       complete token a
+
+type SnapshotName = Text 
+
+snapshot :: Token -> DropletId -> SnapshotName -> IO Action
+snapshot token dropletId0 name = 
+    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
+                                 [("type",["snapshot"]),("name",[name])]
+                                 token
+       putStrLn $ "Initiated snapshot action: " ++ show a
        complete token a
 
 complete :: Token -> Action -> IO Action

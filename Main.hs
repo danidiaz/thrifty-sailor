@@ -29,7 +29,10 @@ import ThriftySailor (Token
                      ,regionSlug
                      ,dropletStatus
                      ,DropletStatus(..)
-                     ,shutdown)
+                     ,snapshotName
+                     ,snapshotRegionSlugs
+                     ,shutdown
+                     ,snapshot)
 import ThriftySailor.Prelude
 
 data Config = Config 
@@ -129,26 +132,36 @@ defaultMainWith msgs = do
                print snaps
         Down -> 
             do (conf,token) <- load
-               ds <- droplets token
-               let Config {confDropletName,confRegionSlug} = conf
+               let Config {confDropletName,confRegionSlug,confSnapshotName} = conf
                hPutStrLn stderr $ "Looking for droplet with name " 
                                ++ Text.unpack confDropletName
                                ++ " in region "
                                ++ Text.unpack confRegionSlug
                let conditions = [ has $ dropletName.only confDropletName
                                 , has $ regionSlug.only confRegionSlug ]
+               ds <- droplets token
                d <- unique (\candidate -> alaf All foldMap ($ candidate) conditions)
                            (userError . show)
                            ds
                hPutStrLn stderr $ "Target droplet found."                        
                let status = view dropletStatus d
                hPutStrLn stderr $ "Droplet status is " ++ show status ++ "."                        
+               hPutStrLn stderr $ "Checking that snapshot with name " 
+                               ++ Text.unpack confSnapshotName
+                               ++ " doens't already exist."
+               let snapshotConditions = [ has $ snapshotName.only confSnapshotName
+                                        , has $ snapshotRegionSlugs.folded.only confRegionSlug ]
+               ss <- snapshots token
+               absent (\candidate -> alaf All foldMap ($ candidate) snapshotConditions)
+                      (userError . show)
+                      ss
                case view dropletStatus d of
                    Active -> 
                         do shutdown token (view dropletId d)
                            pure ()
                    Off -> pure ()
                    _ -> throwError (userError ("Droplet not in valid status for snapshot."))
+               snapshot token (view dropletId d) confSnapshotName 
                pure () 
         _ -> 
             do (conf,token) <- load

@@ -4,6 +4,7 @@ module ThriftySailor.Prelude (
     ,   maybeError
     ,   ZeroMoreThanOne(..)
     ,   unique
+    ,   absent
     ) where
 
 import Control.Monad.Except 
@@ -27,4 +28,7 @@ unique predicate errFunc container = case Prelude.filter predicate (Data.Foldabl
     a : [] -> return a
     a : a' : as -> throwError (errFunc (MoreThanOne a a' as))
 
-
+absent :: (MonadError e' m, Foldable f) => (a -> Bool) -> (NonEmpty a -> e') -> f a -> m ()
+absent predicate errFunc container = case Prelude.filter predicate (Data.Foldable.toList container) of
+    [] -> return ()
+    a : as -> throwError (errFunc (a :| as))
