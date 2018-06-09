@@ -39,9 +39,11 @@ Here are some doctl example commands:
 
 ## Ok, I want to use this anyway, how to build & install it?
 
-You'll need [cabal-install >= 2.0](https://www.haskell.org/cabal/download.html).
+You'll need [GHC](https://www.haskell.org/ghc/download.html) and [cabal-install >= 2.2](https://www.haskell.org/cabal/download.html).
 
---TBD
+Inside the project folder, run
+
+    cabal new-install --symlink-bindir=<targetpath>
 
 ## How to configure it, once installed?
 
@@ -55,7 +57,7 @@ It will spit out an example JSON configuration file in stdout. Copy it to
 
     $HOME/.config/thrifty-sailor/config.json 
     
-As the value of `token_environment_variable` put the name of the environment
+As the value of `token_environment_variable` write the name of the environment
 variable holding the Digital Ocean token.
 
 Then run
@@ -66,8 +68,8 @@ A list of your droplets and snapshots will appear on stdout. Select the one you
 want to target and write its "droplet_name", "region_slug" and "size_slug" in
 the configuration file.
 
-Finally, in the "snapshot_name" of the configuration file, write the name you
-want to give to the snapshot that will be generated.
+Finally, in the "snapshot_name" entry of the configuration file, write the name
+you want to give to the snapshot that will be generated.
 
 Having done this, invoking
 
