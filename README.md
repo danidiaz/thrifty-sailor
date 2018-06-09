@@ -2,7 +2,7 @@
 
 ## What's this?
 
-A command-line tool for making a snapshot of a Digital Ocean droplet and
+A command-line tool for taking a snapshot of a Digital Ocean droplet and
 destroying the droplet afterwards. Also works in reverse direction: restore a
 droplet from a snapshot and destroy the snapshot afterwards.
 
@@ -13,17 +13,17 @@ For saving money, when you don't need to have a droplet active all the time.
 At the time of writing this, the cheapest droplet—with 25 GB disk space—costs
 $5/mo. It will be billed even when it is off.
 
-Meanwhile, snapshot cost is based on space used and charged at a rate of
+Meanwhile, snapshot cost is based on space used, and it's charged at a rate of
 $0.05/GB/mo. Even if you use the full 25 GB disk, that will be $1.25/mo.
 
 So, if you have a pet development droplet, it is cheaper to keep it as an
 snapshot while you are not using it. But the cycle of snapshotting, deleting
-droplet, restoring droplet and deleting snapshot is tedious to perform through
-the web interface.
+the droplet, restoring the droplet and deleting the snapshot is tedious to
+perform through the web interface.
 
-## Can't I do that with doctl?
+## Can't I do that with doctl already?
 
-Yes. I just decided to reinvent the wheel for educational purposes.
+Yes. I just reinvented the wheel for educational purposes.
 
 Here's a [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client).
 
