@@ -33,7 +33,7 @@ executable thrifty-sailor
         thrifty-network,
         prelude
     default-language:    Haskell2010
-    ghc-options: -fno-warn-partial-type-signatures
+    -- ghc-options: -fno-warn-partial-type-signatures
 
 library
   exposed-modules:     

@@ -8,7 +8,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -105,13 +104,13 @@ recordFromJSON :: forall r xs ns.
                -> Value
                -> Data.Aeson.Types.Parser r
 recordFromJSON aliases value = 
-    let parsers :: NP Parser2 xs = cpure_NP (Proxy @FromJSON) 
+    let aliases_xs :: NP (K Text) xs= hcoerce aliases
+        parsers :: NP Parser2 xs = cpure_NP (Proxy @FromJSON) 
                                             (Parser2 (\fieldName o -> o .: fieldName))
         Parser1 gp = sequence_NP (liftA2_NP (\(K fieldName) (Parser2 f) -> Parser1 (f fieldName)) 
-                                            (hcoerce aliases)
+                                            aliases_xs
                                             parsers)
      in Generics.SOP.to . SOP . Z <$> withObject "Record" gp value
-
 
 recordToJSON :: forall r xs ns.
                 (IsProductType r xs, 
@@ -122,15 +121,17 @@ recordToJSON :: forall r xs ns.
              => AliasesFor ns
              -> r
              -> Value
-recordToJSON aliases r = undefined
---    let parsers :: NP Parser2 xs = cpure_NP (Proxy @FromJSON) 
---                                            (Parser2 (\fieldName o -> o .: fieldName))
+recordToJSON aliases r = 
+    let aliases_xs :: NP (K Text) xs= hcoerce aliases
+        rep = unZ (unSOP (Generics.SOP.from r))
+        pairs = hcliftA2 (Proxy @ToJSON) (\(K a) (I x) -> K (a .= x)) aliases_xs rep
+     in object (hcollapse pairs)
 
-confFromJSON :: Value -> Data.Aeson.Types.Parser Config
-confFromJSON = recordFromJSON configAliases
-
-confToJSON :: Config -> Value
-confToJSON = recordToJSON configAliases
+-- confgFromJSON :: Value -> Data.Aeson.Types.Parser Config
+-- confFromJSON = recordFromJSON configAliases
+-- 
+-- confToJSON :: Config -> Value
+-- confToJSON = recordToJSON configAliases
 
 type family FieldNamesOf r :: [Symbol] where
     FieldNamesOf r = FieldNames (DatatypeInfoOf r)
@@ -148,28 +149,13 @@ instance Applicative Parser1 where
     pure x = Parser1 (pure (pure x))
     Parser1 pa <*> Parser1 pb = Parser1 $ \v -> pa v <*> pb v 
 
-newtype Parser2 a = Parser2 { parseJSON2 :: Text -> Object -> Data.Aeson.Types.Parser a } deriving Functor
-
-instance Applicative Parser2 where
-    pure x = Parser2 (pure (pure (pure x)))
-    Parser2 pa <*> Parser2 pb = Parser2 $ \s v -> pa s v <*> pb s v 
+newtype Parser2 a = Parser2 { parseJSON2 :: Text -> Object -> Data.Aeson.Types.Parser a } 
 
 instance FromJSON Config where
-    parseJSON = withObject "Config" $ \v -> 
-        Config <$> v .: "token_environment_variable"
-               <*> v .: "droplet_name"
-               <*> v .: "snapshot_name"
-               <*> v .: "region_slug"
-               <*> v .: "size_slug"
+    parseJSON = recordFromJSON configAliases
 
 instance ToJSON Config where
-    toJSON (Config {doTokenEnvVar,confDropletName,confSnapshotName,confRegionSlug,confSizeSlug}) =
-          object [ "token_environment_variable" .= doTokenEnvVar
-                 , "droplet_name" .= confDropletName
-                 , "snapshot_name" .= confSnapshotName
-                 , "region_slug" .= confRegionSlug
-                 , "size_slug" .= confSizeSlug
-                 ]
+    toJSON = recordToJSON configAliases
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
 
