@@ -16,6 +16,8 @@ function! GHCId(which)
         let l:target = "lib:prelude"
     elseif a:which == "delays"
         let l:target = "lib:delays"
+    elseif a:which == "json"
+        let l:target = "lib:thrifty-json"
     endif
     execute "below terminal ++rows=10 ghcid --command=\"cabal new-repl" l:target "\""
 endfunction

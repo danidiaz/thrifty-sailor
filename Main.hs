@@ -1,17 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveFunctor #-}
 module Main where
 
@@ -20,10 +11,7 @@ import           System.FilePath
 import           System.Environment
 import           System.IO
 import           Data.Aeson
-import qualified Data.Aeson.Types
-import           Data.Proxy
 import           Data.Monoid
-import           Data.Functor.Const
 import           Control.Monad.Except
 import qualified Data.Text.Read
 import qualified Data.Aeson.Encode.Pretty
@@ -35,11 +23,8 @@ import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text as Text
 
-import GHC.TypeLits (Symbol)
 import qualified GHC.Generics as GHC
-import Generics.SOP
-import Generics.SOP.NP
-import qualified Generics.SOP.Type.Metadata as M
+import           Generics.SOP
 
 import ThriftySailor (Token
                      ,droplets
@@ -59,6 +44,7 @@ import ThriftySailor (Token
                      ,DropletCreation(..)
                      ,createDroplet)
 import ThriftySailor.Prelude
+import ThriftySailor.JSON
 
 -- many attributes here are similar to the droplet creation request...
 data Config = Config 
@@ -73,8 +59,6 @@ data Config = Config
 instance Generic Config
 instance HasDatatypeInfo Config
 
-type AliasesFor ns = NP (K Text) ns
-
 configAliases :: AliasesFor (FieldNamesOf Config)
 configAliases =
       alias @"doTokenEnvVar"     "token_environment_variable"
@@ -84,8 +68,11 @@ configAliases =
    :* alias @"confSizeSlug"      "size_slug"
    :* Nil
 
-alias :: forall (k :: Symbol). Text -> K Text k
-alias = K
+instance FromJSON Config where
+    parseJSON = recordFromJSON configAliases
+
+instance ToJSON Config where
+    toJSON = recordToJSON configAliases
 
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
@@ -93,69 +80,6 @@ sample = Config "DIGITAL_OCEAN_TOKEN"
                 "dummy_snapshot_name"
                 "ams3"
                 "s-1vcpu-1gb"
-
-recordFromJSON :: forall r xs ns.
-                  (IsProductType r xs, 
-                   HasDatatypeInfo r,
-                   FieldNamesOf r ~ ns,
-                   AllZip (LiftedCoercible (K Text) (K Text)) ns xs,
-                   Generics.SOP.All FromJSON xs) 
-               => AliasesFor ns
-               -> Value
-               -> Data.Aeson.Types.Parser r
-recordFromJSON aliases value = 
-    let aliases_xs :: NP (K Text) xs= hcoerce aliases
-        parsers :: NP Parser2 xs = cpure_NP (Proxy @FromJSON) 
-                                            (Parser2 (\fieldName o -> o .: fieldName))
-        Parser1 gp = sequence_NP (liftA2_NP (\(K fieldName) (Parser2 f) -> Parser1 (f fieldName)) 
-                                            aliases_xs
-                                            parsers)
-     in Generics.SOP.to . SOP . Z <$> withObject "Record" gp value
-
-recordToJSON :: forall r xs ns.
-                (IsProductType r xs, 
-                 HasDatatypeInfo r,
-                 FieldNamesOf r ~ ns,
-                 AllZip (LiftedCoercible (K Text) (K Text)) ns xs,
-                 Generics.SOP.All ToJSON xs) 
-             => AliasesFor ns
-             -> r
-             -> Value
-recordToJSON aliases r = 
-    let aliases_xs :: NP (K Text) xs= hcoerce aliases
-        rep = unZ (unSOP (Generics.SOP.from r))
-        pairs = hcliftA2 (Proxy @ToJSON) (\(K a) (I x) -> K (a .= x)) aliases_xs rep
-     in object (hcollapse pairs)
-
--- confgFromJSON :: Value -> Data.Aeson.Types.Parser Config
--- confFromJSON = recordFromJSON configAliases
--- 
--- confToJSON :: Config -> Value
--- confToJSON = recordToJSON configAliases
-
-type family FieldNamesOf r :: [Symbol] where
-    FieldNamesOf r = FieldNames (DatatypeInfoOf r)
-
-type family FieldNames (a :: M.DatatypeInfo) :: [Symbol] where
-    FieldNames ('M.ADT moduleName datatypeName '[M.Record constructorName fields]) = FieldNames' fields
-
-type family FieldNames' (a :: [M.FieldInfo]) :: [Symbol] where
-    FieldNames' '[] = '[]
-    FieldNames' (('M.FieldInfo n) ': xs) = n ': FieldNames' xs
-
-newtype Parser1 a = Parser1 { parseJSON1 :: Object -> Data.Aeson.Types.Parser a } deriving Functor
-
-instance Applicative Parser1 where
-    pure x = Parser1 (pure (pure x))
-    Parser1 pa <*> Parser1 pb = Parser1 $ \v -> pa v <*> pb v 
-
-newtype Parser2 a = Parser2 { parseJSON2 :: Text -> Object -> Data.Aeson.Types.Parser a } 
-
-instance FromJSON Config where
-    parseJSON = recordFromJSON configAliases
-
-instance ToJSON Config where
-    toJSON = recordToJSON configAliases
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
 

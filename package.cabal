@@ -31,6 +31,7 @@ executable thrifty-sailor
         optparse-applicative >=0.14.0.0 && < 0.15,
         thrifty-sailor,
         thrifty-network,
+        thrifty-json,
         prelude
     default-language:    Haskell2010
     -- ghc-options: -fno-warn-partial-type-signatures
@@ -66,6 +67,18 @@ library thrifty-network
         lens            >=4.4 && <5,
         wreq            >=0.5.2.1
   hs-source-dirs:      network
+  default-language:    Haskell2010
+  
+library thrifty-json
+  exposed-modules:     
+        ThriftySailor.JSON
+  build-depends:
+        base            >=4.10 && <5,
+        bytestring      >=0.10 && <0.11,
+        text            >=1.2 && <1.3,
+        aeson           >=1.3,
+        generics-sop    >=0.3.2.0
+  hs-source-dirs:      json
   default-language:    Haskell2010
 
 library delays
