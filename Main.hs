@@ -3,24 +3,37 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 module Main where
 
-import System.Directory
-import System.FilePath
-import System.Environment
-import System.IO
-import Data.Aeson
-import Data.Monoid
-import Control.Monad.Except
+import           System.Directory
+import           System.FilePath
+import           System.Environment
+import           System.IO
+import           Data.Aeson
+import           Data.Monoid
+import           Data.Functor.Const
+import           Control.Monad.Except
 import qualified Data.Text.Read
 import qualified Data.Aeson.Encode.Pretty
-import Data.Function ((&))
-import Options.Applicative
-import Control.Lens hiding ((.=))
+import           Data.Function ((&))
+import           Options.Applicative
+import           Control.Lens hiding ((.=))
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text as Text
+
+import GHC.TypeLits (Symbol)
+import qualified GHC.Generics as GHC
+import Generics.SOP
+import qualified Generics.SOP.Type.Metadata as M
 
 import ThriftySailor (Token
                      ,droplets
@@ -49,7 +62,24 @@ data Config = Config
             ,   confSnapshotName :: Text
             ,   confRegionSlug :: Text
             ,   confSizeSlug :: Text
-            } deriving (Eq,Show)
+            } deriving (Eq,Show,GHC.Generic)
+
+instance Generic Config
+instance HasDatatypeInfo Config
+
+type ExternalFieldNames ns = NP (K String) ns
+
+configFields :: ExternalFieldNames _
+configFields =
+      external @"doTokenEnvVar"     "token_environment_variable"
+   :* external @"confDropletName"   "droplet_name"
+   :* external @"confSnapshotName"  "snapshot_name"
+   :* external @"confRegionSlug"    "region_slug"
+   :* external @"confSizeSlug"      "size_slug"
+   :* Nil
+
+external :: forall (k :: Symbol). String -> K String k
+external = K
 
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
@@ -57,6 +87,26 @@ sample = Config "DIGITAL_OCEAN_TOKEN"
                 "dummy_snapshot_name"
                 "ams3"
                 "s-1vcpu-1gb"
+
+recordToJSON :: forall r xs moduleName datatypeName constructorName fields ns.
+                (IsProductType r xs, 
+                 HasDatatypeInfo r,
+                 DatatypeInfoOf r ~ M.ADT moduleName datatypeName '[M.Record constructorName fields],
+                 FieldNames fields ~ ns,
+                 AllZip (LiftedCoercible (K String) (K String)) ns xs) 
+             => ExternalFieldNames ns
+             -> r 
+             -> Value
+recordToJSON e r = 
+    let e' :: NP (K String) xs = hcoerce e
+     in undefined
+
+confToJSON :: Config -> Value
+confToJSON r = recordToJSON configFields r
+
+type family FieldNames (a :: [M.FieldInfo]) :: [Symbol] where
+    FieldNames '[] = '[]
+    FieldNames (('M.FieldInfo n) ': xs) = n ': FieldNames xs
 
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \v -> 

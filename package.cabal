@@ -27,11 +27,13 @@ executable thrifty-sailor
         directory       >=1.3.2.0,
         filepath        >=1.4.2,
         mtl             >=2.2.2,
+        generics-sop    >=0.3.2.0,
         optparse-applicative >=0.14.0.0 && < 0.15,
         thrifty-sailor,
         thrifty-network,
         prelude
     default-language:    Haskell2010
+    ghc-options: -fno-warn-partial-type-signatures
 
 library
   exposed-modules:     
