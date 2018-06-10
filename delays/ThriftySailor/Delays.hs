@@ -50,8 +50,8 @@ waits minDelay (Factor f) maxDelay =
     floatify = fromIntegral . (*1e6) . getSeconds
                 
 retrying :: Stream (Of ()) IO a -> IO (Either x a) -> Stream (Of x) IO a
-retrying waits' action = 
-    S.zipWith (\x _ -> x) (S.untilRight action) waits'
+retrying waits0 action = 
+    S.zipWith (\_ x -> x) waits0 (S.untilRight action) 
 
 giveUp :: Seconds -> Stream (Of a) IO r -> Stream (Of a) IO (Either () r)  
 giveUp (Seconds s) stream = 
