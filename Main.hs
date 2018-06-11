@@ -130,6 +130,16 @@ parserInfo =
     subcommand p (NameDesc {optionName,optionDesc}) = 
         O.command optionName (infoHelpDesc p optionDesc)
 
+
+oscillate :: IO [target]
+          -> (target -> Bool)
+          -> IO [source]
+          -> (source -> Bool)
+          -> (source -> IO ()) -- prepare source
+          -> (source -> IO ()) -- transformation
+oscillate =
+    do undefined
+
 main :: IO ()
 main = do
     command <- O.execParser parserInfo
