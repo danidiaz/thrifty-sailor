@@ -5,6 +5,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module ThriftySailor (
         Token
 
@@ -30,6 +33,8 @@ module ThriftySailor (
     ,   name
     ,   regionSlug
     ,   sizeSlug
+
+    ,   RegionSlug(..)
 
     ,   createDroplet
 
@@ -88,12 +93,6 @@ dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 dropletAttrs :: Lens' Droplet NameRegionSize
 dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 
---dropletName :: Lens' Droplet Text
---dropletName f s = _dropletName s & f <&> \a -> s { _dropletName = a }
---
---dropletRegionSlug :: Lens' Droplet Text
---dropletRegionSlug f s = _dropletRegionSlug s & f <&> \a -> s { _dropletRegionSlug = a }
-
 dropletStatus :: Lens' Droplet DropletStatus
 dropletStatus f s = _status s & f <&> \a -> s { _status = a }
 
@@ -144,6 +143,12 @@ instance FromJSON WrappedDroplet where
     parseJSON = withObject "WrappedDroplet" $ \v -> 
         WrappedDroplet <$> v .: "droplet"
 
+
+newtype RegionSlug = RegionSlug { getRegionSlug :: Text } deriving (Show,Eq,GHC.Generic)
+
+deriving newtype instance FromJSON RegionSlug 
+deriving newtype instance ToJSON RegionSlug 
+
 newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
 
 instance FromJSON Snapshots where
@@ -156,7 +161,7 @@ data Snapshot = Snapshot
               {
                 _snapshotId :: Text
               , _snapshotName :: Text
-              , _snapshotRegionSlugs :: [Text]
+              , _snapshotRegionSlugs :: [RegionSlug]
               } deriving Show
 
 snapshotId :: Lens' Snapshot Text
@@ -165,7 +170,7 @@ snapshotId f s = _snapshotId s & f <&> \a -> s { _snapshotId = a }
 snapshotName :: Lens' Snapshot Text
 snapshotName f s = _snapshotName s & f <&> \a -> s { _snapshotName = a }
 
-snapshotRegionSlugs :: Lens' Snapshot [Text]
+snapshotRegionSlugs :: Lens' Snapshot [RegionSlug]
 snapshotRegionSlugs f s = _snapshotRegionSlugs s & f <&> \a -> s { _snapshotRegionSlugs = a }
 
 instance FromJSON Snapshot where
@@ -298,7 +303,7 @@ deleteSnapshot token snapshotId0 =
 data NameRegionSize = NameRegionSize
                     {
                          _name :: Text
-                    ,    _regionSlug :: Text
+                    ,    _regionSlug :: RegionSlug
                     ,    _sizeSlug :: Text      
                     } deriving (GHC.Generic,Eq,Show)
 
@@ -323,7 +328,7 @@ instance ToJSON NameRegionSize where
 name :: Lens' NameRegionSize Text
 name f s = _name s & f <&> \a -> s { _name = a }
 
-regionSlug :: Lens' NameRegionSize Text
+regionSlug :: Lens' NameRegionSize RegionSlug
 regionSlug f s = _regionSlug s & f <&> \a -> s { _regionSlug = a }
 
 sizeSlug :: Lens' NameRegionSize Text
@@ -335,7 +340,7 @@ createDroplet :: Token -> NameRegionSize -> ImageId -> IO Droplet
 createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId = 
     do WrappedDroplet d <- doPOST ("/v2/droplets/") 
                                   [("name",[_name])
-                                  ,("region",[_regionSlug])
+                                  ,("region",[getRegionSlug _regionSlug])
                                   ,("size",[_sizeSlug])
                                   ,("image",[Data.Text.pack . show $ imageId])
                                   ]

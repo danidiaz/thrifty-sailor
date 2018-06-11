@@ -6,12 +6,11 @@
 module Main where
 
 import           Prelude hiding (log)
+
 import           System.Directory
 import           System.FilePath
 import           System.Environment
-import           System.IO
 import           Data.Aeson
-import           Data.Monoid
 import           Control.Monad.Except
 import qualified Data.Text.Read
 import qualified Data.Aeson.Encode.Pretty
@@ -20,8 +19,6 @@ import           Control.Lens
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
-import qualified Data.Text as Text
-
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 
@@ -44,6 +41,7 @@ import           ThriftySailor (Token
                                ,createSnapshot
                                ,deleteSnapshot
                                ,NameRegionSize(..)
+                               ,RegionSlug(..)
                                ,name
                                ,regionSlug
                                ,createDroplet)
@@ -76,7 +74,7 @@ instance ToJSON Config where
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
                 (NameRegionSize "dummy-droplet-name"
-                                "ams3"
+                                (RegionSlug "ams3")
                                 "s-1vcpu-1gb")
                 "dummy-snapshot-name"
 
@@ -86,8 +84,6 @@ xdgConfPath = do
     let file = xdg </> "config.json" 
     log ("Looking for configuration file " ++ file ++ ".")
     return file
-
-
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
 
@@ -138,7 +134,7 @@ dropletMatches :: NameRegionSize -> Droplet -> Bool
 dropletMatches attrs d =
     attrs == view dropletAttrs d   
 
-snapshotMatches :: SnapshotName -> Text -> Snapshot -> Bool
+snapshotMatches :: SnapshotName -> RegionSlug -> Snapshot -> Bool
 snapshotMatches snapshotName0 regionSlug0 s =
        snapshotName0 == view snapshotName s
     && any (== regionSlug0) (view snapshotRegionSlugs s) 
@@ -179,9 +175,6 @@ moveUp token snapshotName0 attrs  =
 main :: IO ()
 main = do
     command <- O.execParser parserInfo
-    let load = do path <- xdgConfPath
-                  conf <- loadConf path
-                  loadToken conf
     case command of
         Example -> 
               Data.ByteString.Lazy.Char8.putStrLn 
@@ -200,13 +193,12 @@ main = do
             do (conf,token) <- load
                moveDown token (_configDropletAttrs conf) (_configSnapshotName conf)
   where
-    loadConf :: FilePath -> IO Config
-    loadConf file = do
-        e <- eitherDecodeFileStrict' file
-        eitherError userError e
-    loadToken :: Config -> IO (Config,Token)
-    loadToken conf = do
-        token <- do m <- lookupEnv (_doTokenEnvVar conf)
-                    let message = "Token " ++ (_doTokenEnvVar conf) ++ " not found in environment." 
-                    maybeError (userError message) m
-        return (conf,token)
+    load :: IO (Config,Token)
+    load = 
+        do path <- xdgConfPath
+           conf <-  do e <- eitherDecodeFileStrict' path
+                       eitherError userError e
+           token <- do m <- lookupEnv (_doTokenEnvVar conf)
+                       let message = "Token " ++ (_doTokenEnvVar conf) ++ " not found in environment." 
+                       maybeError (userError message) m
+           return (conf,token)
