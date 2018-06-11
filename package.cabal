@@ -48,7 +48,9 @@ library
         text            >=1.2 && <1.3,
         aeson           >=1.3,
         lens            >=4.4 && <5,
+        generics-sop    >=0.3.2.0,
         delays,
+        thrifty-json,
         prelude
   hs-source-dirs:      library
   default-language:    Haskell2010

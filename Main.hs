@@ -29,9 +29,8 @@ import           ThriftySailor.Prelude
 import           ThriftySailor (Token
                                ,droplets
                                ,snapshots
-                               ,dropletName
                                ,dropletId
-                               ,regionSlug
+                               ,dropletAttrs
                                ,dropletStatus
                                ,DropletStatus(..)
                                ,snapshotName
@@ -41,7 +40,10 @@ import           ThriftySailor (Token
                                ,snapshot
                                ,deleteDroplet
                                ,deleteSnapshot
-                               ,DropletCreation(..)
+                               ,NameRegionSize(..)
+                               ,name
+                               ,regionSlug
+                               ,sizeSlug
                                ,createDroplet)
 import           ThriftySailor.JSON
 
@@ -50,11 +52,9 @@ import           ThriftySailor.JSON
 data Config = Config 
             { 
                 doTokenEnvVar :: String 
+            ,   configDropletAttrs :: NameRegionSize
             ,   configSnapshotName :: Text
-            ,   configDropletName :: Text 
-            ,   configRegionSlug :: Text
-            ,   configSizeSlug :: Text
-            } deriving (Eq,Show,GHC.Generic)
+            } deriving (Show,GHC.Generic)
 
 instance Generic Config
 instance HasDatatypeInfo Config
@@ -62,10 +62,8 @@ instance HasDatatypeInfo Config
 configAliases :: AliasesFor (FieldNamesOf Config)
 configAliases =
       alias @"doTokenEnvVar"      "token_environment_variable"
+   :* alias @"configDropletAttrs" "droplet"
    :* alias @"configSnapshotName" "snapshot_name"
-   :* alias @"configDropletName"  "droplet_name"
-   :* alias @"configRegionSlug"   "region_slug"
-   :* alias @"configSizeSlug"     "size_slug"
    :* Nil
 
 instance FromJSON Config where
@@ -76,10 +74,10 @@ instance ToJSON Config where
 
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
-                "dummy_droplet_name"
+                (NameRegionSize "dummy_droplet_name"
+                                "ams3"
+                                "s-1vcpu-1gb")
                 "dummy_snapshot_name"
-                "ams3"
-                "s-1vcpu-1gb"
 
 xdgConfPath :: IO FilePath
 xdgConfPath = do
@@ -100,9 +98,11 @@ loadToken conf@(Config {doTokenEnvVar}) = do
                 maybeError (userError message) m
     return (conf,token)
 
-data Command = Example | Status | Up | Down deriving (Eq,Show)
+data Command = Example | Status | UpDown UpDown deriving (Eq,Show)
 
-data NameDesc = NameDesc { name :: String, desc :: String }
+data UpDown = Up | Down deriving (Eq,Show)
+
+data NameDesc = NameDesc { optionName :: String, optionDesc :: String }
 
 parserInfo :: O.ParserInfo Command
 parserInfo = 
@@ -115,10 +115,10 @@ parserInfo =
             , subcommand (pure Status)  
                          (NameDesc "status" 
                                    "Show current status of the target server")
-            , subcommand (pure Up)  
+            , subcommand (pure (UpDown Up))
                          (NameDesc "up" 
                                    "Restores server from snapshot, deletes snapshot")
-            , subcommand (pure Down)
+            , subcommand (pure (UpDown Down))
                          (NameDesc "down" 
                                    "Shuts down server, makes snapshot, destroys server") ]
      in infoHelpDesc parser "Main options."
@@ -127,7 +127,8 @@ parserInfo =
     infoHelpDesc p desc = O.info (O.helper <*> p) (O.fullDesc <> O.progDesc desc)
 
     subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
-    subcommand p (NameDesc {name,desc}) = O.command name (infoHelpDesc p desc)
+    subcommand p (NameDesc {optionName,optionDesc}) = 
+        O.command optionName (infoHelpDesc p optionDesc)
 
 main :: IO ()
 main = do
@@ -146,75 +147,59 @@ main = do
                print drops
                snaps <- snapshots token
                print snaps
-        Down -> 
-            do (conf,token) <- load
-               let Config {configDropletName,configRegionSlug,configSnapshotName} = conf
-               log ("Looking for droplet with name " 
-                    ++ Text.unpack configDropletName
-                    ++ " in region "
-                    ++ Text.unpack configRegionSlug)
-               let conditions = [ has $ dropletName.only configDropletName
-                                , has $ regionSlug.only configRegionSlug ]
-               ds <- droplets token
-               d <- unique (\candidate -> alaf All foldMap ($ candidate) conditions)
-                           (userError . show)
-                           ds
-               log "Target droplet found."                        
-               let status = view dropletStatus d
-               log ("Droplet status is " ++ show status ++ ".")
-               log ("Checking that snapshot with name " 
-                    ++ Text.unpack configSnapshotName
-                    ++ " doesn't already exist.")
-               let snapshotConditions = [ has $ snapshotName.only configSnapshotName
-                                        , has $ snapshotRegionSlugs.folded.only configRegionSlug ]
-               ss <- snapshots token
-               absent (\candidate -> alaf All foldMap ($ candidate) snapshotConditions)
-                      (userError . show)
-                      ss
-               case view dropletStatus d of
-                   Active -> 
-                        do shutdown token (view dropletId d)
-                           pure ()
-                   Off -> pure ()
-                   _ -> throwError (userError ("Droplet not in valid status for snapshot."))
-               log "Taking snapshot..." 
-               snapshot token (view dropletId d) configSnapshotName 
-               log "Deleting droplet..." 
-               deleteDroplet token (view dropletId d)
-               log "Done."
-        Up -> 
-            do (conf,token) <- load
-               let Config {configDropletName,configRegionSlug,configSnapshotName,configSizeSlug} = conf
-               log ("Looking for snapshot with name " 
-                    ++ Text.unpack configSnapshotName
-                    ++ " in region "
-                    ++ Text.unpack configRegionSlug)
-               let snapshotConditions = [ has $ snapshotName.only configSnapshotName
-                                        , has $ snapshotRegionSlugs.folded.only configRegionSlug ]
-               ss <- snapshots token
-               s <- unique (\candidate -> alaf All foldMap ($ candidate) snapshotConditions)
-                           (userError . show)
-                           ss
-               log "Target snapshot found."                        
-               log ("Checking that droplet with name " 
-                    ++ Text.unpack configDropletName
-                    ++ " doesn't exist in region."
-                    ++ Text.unpack configRegionSlug)
-               let conditions = [ has $ dropletName.only configDropletName
-                                , has $ regionSlug.only configRegionSlug ]
-               ds <- droplets token
-               absent (\candidate -> alaf All foldMap ($ candidate) conditions)
-                      (userError . show)
-                      ds
-               log "Restoring droplet..."                        
-               let Right (isnapshotId,_) = Data.Text.Read.decimal (view snapshotId s)
-               d <- createDroplet token   
-                                  (DropletCreation configDropletName
-                                                   configRegionSlug  
-                                                   configSizeSlug
-                                                   isnapshotId)
-               log "Deleting snapshot..." 
-               deleteSnapshot token (view snapshotId s)
-               log "Done."
+        UpDown upOrDown ->
+            do (Config {configDropletAttrs,configSnapshotName},token) <- load
+               let NameRegionSize {_name,_regionSlug,_sizeSlug} = configDropletAttrs
+                   dropletMatches attrs d = 
+                       attrs == view dropletAttrs d
+                   snapshotMatches attrs s =
+                          view snapshotName s == view name attrs 
+                       && any (== (view regionSlug attrs)) (view snapshotRegionSlugs s) 
+               case upOrDown of
+                   Down -> 
+                       do log ("Looking for droplet that matches " ++ show configDropletAttrs)
+                          ds <- droplets token
+                          d <- unique (dropletMatches configDropletAttrs)
+                                      (userError . show)
+                                      ds
+                          log "Target droplet found."                        
+                          let status = view dropletStatus d
+                          log ("Checking that no snapshot matches " ++ show configDropletAttrs) 
+                          ss <- snapshots token
+                          absent (snapshotMatches configDropletAttrs)
+                                 (userError . show)
+                                 ss
+                          log ("Droplet status is " ++ show status ++ ".")
+                          case view dropletStatus d of
+                              Active -> 
+                                   do shutdown token (view dropletId d)
+                                      pure ()
+                              Off -> pure ()
+                              _ -> throwError (userError ("Droplet not in valid status for snapshot."))
+                          log "Taking snapshot..." 
+                          snapshot token (view dropletId d) configSnapshotName 
+                          log "Deleting droplet..." 
+                          deleteDroplet token (view dropletId d)
+                          log "Done."
+                   Up -> 
+                       do log ("Looking for snapshot compatible with" ++ show configDropletAttrs)
+                          ss <- snapshots token
+                          s <- unique (snapshotMatches configDropletAttrs)
+                                      (userError . show)
+                                      ss
+                          log "Target snapshot found."                        
+                          log ("Checking that no droplet matches " ++ show configDropletAttrs) 
+                          ds <- droplets token
+                          absent (dropletMatches configDropletAttrs)
+                                 (userError . show)
+                                 ds
+                          log "Restoring droplet..."                        
+                          let Right (isnapshotId,_) = Data.Text.Read.decimal (view snapshotId s)
+                          createDroplet token   
+                                        configDropletAttrs
+                                        isnapshotId
+                          log "Deleting snapshot..." 
+                          deleteSnapshot token (view snapshotId s)
+                          log "Done."
     pure ()
 

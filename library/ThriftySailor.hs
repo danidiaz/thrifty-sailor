@@ -2,6 +2,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 module ThriftySailor (
         Token
 
@@ -9,8 +12,9 @@ module ThriftySailor (
 
     ,   Droplet
     ,   dropletId
-    ,   dropletName
-    ,   regionSlug
+    ,   dropletAttrs
+--    ,   dropletName
+--    ,   dropletRegionSlug
     ,   dropletStatus
 
     ,   DropletStatus(..)
@@ -22,7 +26,13 @@ module ThriftySailor (
     ,   shutdown
     ,   snapshot
     ,   deleteDroplet
-    ,   DropletCreation(..)
+    ,   ImageId
+
+    ,   NameRegionSize(..)
+    ,   name
+    ,   regionSlug
+    ,   sizeSlug
+
     ,   createDroplet
 
     ,   snapshots
@@ -46,9 +56,12 @@ import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
 import           Control.Exception
+import qualified GHC.Generics as GHC
+import           Generics.SOP
 
 import           ThriftySailor.Prelude
 import           ThriftySailor.Delays
+import           ThriftySailor.JSON
 import           ThriftySailor.Network (doGET,doPOST,doDELETE,Token)
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
@@ -66,32 +79,34 @@ type DropletId = Integer
 data Droplet = Droplet 
              {
                 _dropletId :: DropletId
-             ,  _dropletName :: Text
-             ,  _regionSlug :: Text
-             ,  _sizeSlug :: Text
+             ,  _dropletAttrs :: NameRegionSize
              ,  _status :: DropletStatus
              } deriving Show
 
 dropletId :: Lens' Droplet Integer
 dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 
-dropletName :: Lens' Droplet Text
-dropletName f s = _dropletName s & f <&> \a -> s { _dropletName = a }
+dropletAttrs :: Lens' Droplet NameRegionSize
+dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 
-regionSlug :: Lens' Droplet Text
-regionSlug f s = _regionSlug s & f <&> \a -> s { _regionSlug = a }
+--dropletName :: Lens' Droplet Text
+--dropletName f s = _dropletName s & f <&> \a -> s { _dropletName = a }
+--
+--dropletRegionSlug :: Lens' Droplet Text
+--dropletRegionSlug f s = _dropletRegionSlug s & f <&> \a -> s { _dropletRegionSlug = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
 dropletStatus f s = _status s & f <&> \a -> s { _status = a }
 
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
-        Droplet <$> v .: "id"
-                <*> v .: "name"
-                <*> do region <- v .: "region"
-                       region .: "slug"
-                <*> v .: "size_slug"
-                <*> v .: "status"
+        let attrs = NameRegionSize <$> v .: "name"
+                                   <*> do region <- v .: "region"
+                                          region .: "slug"
+                                   <*> v .: "size_slug"
+         in Droplet <$> v .: "id"
+                    <*> attrs
+                    <*> v .: "status"
 
 data DropletStatus = New | Active | Off | Archive deriving (Show,Eq)
 
@@ -281,21 +296,49 @@ deleteSnapshot token snapshotId0 =
     do doDELETE ("/v2/snapshots/" ++Data.Text.unpack snapshotId0) token
        return ()
 
-data DropletCreation = DropletCreation
-                   {
-                        _dropletCreationName :: Text
-                   ,    _dropletCreationRegionSlug :: Text
-                   ,    _dropletCreationSizeSlug :: Text      
-                   ,    _dropletCreationSnapshotId :: Integer -- public images currently not supported
-                   } deriving Show
+data NameRegionSize = NameRegionSize
+                    {
+                         _name :: Text
+                    ,    _regionSlug :: Text
+                    ,    _sizeSlug :: Text      
+                    } deriving (GHC.Generic,Eq,Show)
 
-createDroplet :: Token -> DropletCreation -> IO Droplet
-createDroplet token dc = 
+instance Generic NameRegionSize
+instance HasDatatypeInfo NameRegionSize
+
+nameRegionSizeAliases :: AliasesFor (FieldNamesOf NameRegionSize)
+nameRegionSizeAliases =
+      alias @"_name"       "name"
+   :* alias @"_regionSlug" "region_slug"
+   :* alias @"_sizeSlug"   "size_slug"
+   :* Nil
+
+-- | Used only in Config object.
+instance FromJSON NameRegionSize where
+    parseJSON = recordFromJSON nameRegionSizeAliases
+
+-- | Used only in Config object.
+instance ToJSON NameRegionSize where
+    toJSON = recordToJSON nameRegionSizeAliases
+
+name :: Lens' NameRegionSize Text
+name f s = _name s & f <&> \a -> s { _name = a }
+
+regionSlug :: Lens' NameRegionSize Text
+regionSlug f s = _regionSlug s & f <&> \a -> s { _regionSlug = a }
+
+sizeSlug :: Lens' NameRegionSize Text
+sizeSlug f s = _sizeSlug s & f <&> \a -> s { _sizeSlug = a }
+
+type ImageId = Integer
+
+createDroplet :: Token -> NameRegionSize -> ImageId -> IO Droplet
+createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId = 
     do WrappedDroplet d <- doPOST ("/v2/droplets/") 
-                                  [("name",[_dropletCreationName dc])
-                                  ,("region",[_dropletCreationRegionSlug dc])
-                                  ,("size",[_dropletCreationSizeSlug dc])
-                                  ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
+                                  [("name",[_name])
+                                  ,("region",[_regionSlug])
+                                  ,("size",[_sizeSlug])
+                                  ,("image",[Data.Text.pack . show $ imageId])
                                   ]
                                   token
        log ("Initiated droplet creation: " ++ show d)
