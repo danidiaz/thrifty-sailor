@@ -211,7 +211,7 @@ data ActionType = RebootAction
 instance FromJSON ActionType where
     parseJSON = withText "ActionType" $ \t -> 
         case t of
-            "shutdownDroplet" -> pure ShutdownAction
+            "shutdown" -> pure ShutdownAction
             "reboot" -> pure RebootAction
             "power-off" -> pure PowerOffAction
             "snapshot" -> pure SnapshotAction
@@ -266,9 +266,9 @@ droplets token = getDroplets <$> doGET "/v2/droplets" token
 shutdownDroplet :: Token -> DropletId -> IO Action
 shutdownDroplet token dropletId0 =
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
-                                 [("type",["shutdownDroplet"])]
+                                 [("type",["shutdown"])]
                                  token
-       log ("Initiated shutdownDroplet action: " ++ show a)
+       log ("Initiated shutdown action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
                 (action token (view actionId a))

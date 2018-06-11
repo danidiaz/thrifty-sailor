@@ -38,4 +38,4 @@ absent predicate errFunc container = case Prelude.filter predicate (Data.Foldabl
 
 -- | Emit message on stderr
 log :: String -> IO ()
-log = hPutStr stderr  
+log = hPutStrLn stderr  

@@ -64,9 +64,9 @@ Then run
 
     thrifty-sailor status
 
-A list of your droplets and snapshots will appear on stdout. Select the one you
-want to target and write its "droplet_name", "region_slug" and "size_slug" in
-the configuration file.
+A list of your droplets and snapshots will appear on stdout. Select the droplet
+you want to target and write its "name", "region_slug" and "size_slug" in the
+configuration file.
 
 Finally, in the "snapshot_name" entry of the configuration file, write the name
 you want to give to the snapshot that will be generated.

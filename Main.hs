@@ -52,9 +52,9 @@ import           ThriftySailor.JSON
 
 data Config = Config 
             { 
-                doTokenEnvVar :: String 
-            ,   configDropletAttrs :: NameRegionSize
-            ,   configSnapshotName :: Text
+                _doTokenEnvVar :: String 
+            ,   _configDropletAttrs :: NameRegionSize
+            ,   _configSnapshotName :: Text
             } deriving (Show,GHC.Generic)
 
 instance Generic Config
@@ -62,9 +62,9 @@ instance HasDatatypeInfo Config
 
 configAliases :: AliasesFor (FieldNamesOf Config)
 configAliases =
-      alias @"doTokenEnvVar"      "token_environment_variable"
-   :* alias @"configDropletAttrs" "droplet"
-   :* alias @"configSnapshotName" "snapshot_name"
+      alias @"_doTokenEnvVar"      "token_environment_variable"
+   :* alias @"_configDropletAttrs" "droplet"
+   :* alias @"_configSnapshotName" "snapshot_name"
    :* Nil
 
 instance FromJSON Config where
@@ -75,10 +75,10 @@ instance ToJSON Config where
 
 sample :: Config
 sample = Config "DIGITAL_OCEAN_TOKEN"
-                (NameRegionSize "dummy_droplet_name"
+                (NameRegionSize "dummy-droplet-name"
                                 "ams3"
                                 "s-1vcpu-1gb")
-                "dummy_snapshot_name"
+                "dummy-snapshot-name"
 
 xdgConfPath :: IO FilePath
 xdgConfPath = do
@@ -87,20 +87,9 @@ xdgConfPath = do
     log ("Looking for configuration file " ++ file ++ ".")
     return file
 
-loadConf :: FilePath -> IO Config
-loadConf file = do
-    e <- eitherDecodeFileStrict' file
-    eitherError userError e
 
-loadToken :: Config -> IO (Config,Token)
-loadToken conf@(Config {doTokenEnvVar}) = do
-    token <- do m <- lookupEnv doTokenEnvVar 
-                let message = "Token " ++ doTokenEnvVar ++ " not found in environment." 
-                maybeError (userError message) m
-    return (conf,token)
 
 data Command = Example | Status | Up | Down deriving (Eq,Show)
-
 
 data NameDesc = NameDesc { optionName :: String, optionDesc :: String }
 
@@ -206,7 +195,18 @@ main = do
                print snaps
         Up ->
             do (conf,token) <- load
-               moveUp token (configSnapshotName conf) (configDropletAttrs conf)
+               moveUp token (_configSnapshotName conf) (_configDropletAttrs conf)
         Down ->
             do (conf,token) <- load
-               moveDown token (configDropletAttrs conf) (configSnapshotName conf)
+               moveDown token (_configDropletAttrs conf) (_configSnapshotName conf)
+  where
+    loadConf :: FilePath -> IO Config
+    loadConf file = do
+        e <- eitherDecodeFileStrict' file
+        eitherError userError e
+    loadToken :: Config -> IO (Config,Token)
+    loadToken conf = do
+        token <- do m <- lookupEnv (_doTokenEnvVar conf)
+                    let message = "Token " ++ (_doTokenEnvVar conf) ++ " not found in environment." 
+                    maybeError (userError message) m
+        return (conf,token)
