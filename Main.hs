@@ -27,19 +27,21 @@ import           Generics.SOP
 
 import           ThriftySailor.Prelude
 import           ThriftySailor (Token
+                               ,Droplet
                                ,droplets
-                               ,snapshots
                                ,dropletId
                                ,dropletAttrs
                                ,dropletStatus
                                ,DropletStatus(..)
+                               ,shutdownDroplet
+                               ,deleteDroplet
+                               ,Snapshot
+                               ,snapshots
                                ,SnapshotName
                                ,snapshotName
                                ,snapshotId
                                ,snapshotRegionSlugs
-                               ,shutdownDroplet
                                ,createSnapshot
-                               ,deleteDroplet
                                ,deleteSnapshot
                                ,NameRegionSize(..)
                                ,name
@@ -97,9 +99,8 @@ loadToken conf@(Config {doTokenEnvVar}) = do
                 maybeError (userError message) m
     return (conf,token)
 
-data Command = Example | Status | Move Direction deriving (Eq,Show)
+data Command = Example | Status | Up | Down deriving (Eq,Show)
 
-data Direction = Up | Down deriving (Eq,Show)
 
 data NameDesc = NameDesc { optionName :: String, optionDesc :: String }
 
@@ -114,10 +115,10 @@ parserInfo =
             , subcommand (pure Status)  
                          (NameDesc "status" 
                                    "Show current status of the target server")
-            , subcommand (pure (Move Up))
+            , subcommand (pure Up)
                          (NameDesc "up" 
                                    "Restores server from snapshot, deletes snapshot")
-            , subcommand (pure (Move Down))
+            , subcommand (pure Down)
                          (NameDesc "down" 
                                    "Shuts down server, makes snapshot, destroys server") ]
      in infoHelpDesc parser "Main options."
@@ -139,54 +140,52 @@ doable listTargets checkTarget listSources checkSource =
     do log "Checking that target doesn't already exist..."
        ts <- listTargets
        absent checkTarget (userError . show) ts
-       log "Finding source..."
+       log "Checking that the source exists..."
        ss <- listSources
-       log "Starting the change..."
        s <- unique checkSource (userError . show) ss
        pure s
 
-move :: Token -> NameRegionSize -> SnapshotName -> Direction -> IO ()
-move token attrs snapshotName0 direction = do
-   let dropletMatches d = 
-           attrs == view dropletAttrs d
-       snapshotMatches s =
-           snapshotName0 == view snapshotName s
-           && any (== (view regionSlug attrs)) 
-                  (view snapshotRegionSlugs s) 
-   log ("Droplet attributes: " ++ show attrs) 
-   case direction of
-       Down -> do
-           log "Target is snapshot, source is droplet."
-           d <- doable (snapshots token)
-                       snapshotMatches
-                       (droplets token)
-                       dropletMatches
-           log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
-           case view dropletStatus d of
-               Active -> 
-                    do shutdownDroplet token (view dropletId d)
-                       pure ()
-               Off -> 
-                    pure ()
-               _ -> 
-                    throwError (userError ("Droplet not in valid status for snapshot."))
-           log "Taking snapshot..." 
-           createSnapshot token snapshotName0 (view dropletId d) 
-           log "Deleting droplet..." 
-           deleteDroplet token (view dropletId d)
-           log "Done."
-       Up -> do 
-           log "Target is droplet, source is snapshot."
-           s <- doable (droplets token)
-                       dropletMatches
-                       (snapshots token)
-                       snapshotMatches
-           log "Restoring droplet..."                        
-           let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
-           createDroplet token attrs snapshotId0
-           log "Deleting snapshot..." 
-           deleteSnapshot token (view snapshotId s)
-           log "Done."
+dropletMatches :: NameRegionSize -> Droplet -> Bool 
+dropletMatches attrs d =
+    attrs == view dropletAttrs d   
+
+snapshotMatches :: SnapshotName -> Text -> Snapshot -> Bool
+snapshotMatches snapshotName0 regionSlug0 s =
+       snapshotName0 == view snapshotName s
+    && any (== regionSlug0) (view snapshotRegionSlugs s) 
+
+moveDown :: Token -> NameRegionSize -> SnapshotName -> IO ()
+moveDown token attrs snapshotName0 =
+    do log "Target is snapshot, source is droplet."
+       d <- doable (snapshots token)
+                   (snapshotMatches snapshotName0 (view regionSlug attrs))
+                   (droplets token)
+                   (dropletMatches attrs)
+       log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
+       case view dropletStatus d of
+           Active -> do shutdownDroplet token (view dropletId d)
+                        pure ()
+           Off ->    pure ()
+           _ ->      throwError (userError ("Droplet not in valid status for snapshot."))
+       log "Taking snapshot..." 
+       createSnapshot token snapshotName0 (view dropletId d) 
+       log "Deleting droplet..." 
+       deleteDroplet token (view dropletId d)
+       log "Done."
+
+moveUp :: Token -> SnapshotName -> NameRegionSize -> IO ()
+moveUp token snapshotName0 attrs  =
+    do log "Target is droplet, source is snapshot."
+       s <- doable (droplets token)
+                   (dropletMatches attrs)
+                   (snapshots token)
+                   (snapshotMatches snapshotName0 (view regionSlug attrs))
+       log "Restoring droplet..."                        
+       let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
+       createDroplet token attrs snapshotId0
+       log "Deleting snapshot..." 
+       deleteSnapshot token (view snapshotId s)
+       log "Done."
 
 main :: IO ()
 main = do
@@ -205,10 +204,9 @@ main = do
                print drops
                snaps <- snapshots token
                print snaps
-        Move direction ->
+        Up ->
             do (conf,token) <- load
-               move token 
-                    (configDropletAttrs conf)
-                    (configSnapshotName conf)
-                    direction
-
+               moveUp token (configSnapshotName conf) (configDropletAttrs conf)
+        Down ->
+            do (conf,token) <- load
+               moveDown token (configDropletAttrs conf) (configSnapshotName conf)
