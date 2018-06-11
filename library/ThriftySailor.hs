@@ -13,8 +13,6 @@ module ThriftySailor (
     ,   Droplet
     ,   dropletId
     ,   dropletAttrs
---    ,   dropletName
---    ,   dropletRegionSlug
     ,   dropletStatus
 
     ,   DropletStatus(..)
@@ -23,8 +21,8 @@ module ThriftySailor (
     ,   _Off
     ,   _Archive 
 
-    ,   shutdown
-    ,   snapshot
+    ,   shutdownDroplet
+    ,   createSnapshot
     ,   deleteDroplet
     ,   ImageId
 
@@ -38,6 +36,7 @@ module ThriftySailor (
     ,   snapshots
 
     ,   Snapshot
+    ,   SnapshotName
     ,   snapshotId
     ,   snapshotName
     ,   snapshotRegionSlugs
@@ -212,7 +211,7 @@ data ActionType = RebootAction
 instance FromJSON ActionType where
     parseJSON = withText "ActionType" $ \t -> 
         case t of
-            "shutdown" -> pure ShutdownAction
+            "shutdownDroplet" -> pure ShutdownAction
             "reboot" -> pure RebootAction
             "power-off" -> pure PowerOffAction
             "snapshot" -> pure SnapshotAction
@@ -264,20 +263,20 @@ instance FromJSON WrappedAction where
 droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
-shutdown :: Token -> DropletId -> IO Action
-shutdown token dropletId0 =
+shutdownDroplet :: Token -> DropletId -> IO Action
+shutdownDroplet token dropletId0 =
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
-                                 [("type",["shutdown"])]
+                                 [("type",["shutdownDroplet"])]
                                  token
-       log ("Initiated shutdown action: " ++ show a)
+       log ("Initiated shutdownDroplet action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
                 (action token (view actionId a))
 
 type SnapshotName = Text 
 
-snapshot :: Token -> DropletId -> SnapshotName -> IO Action
-snapshot token dropletId0 name = 
+createSnapshot :: Token -> SnapshotName -> DropletId -> IO Action
+createSnapshot token name dropletId0 = 
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
                                  [("type",["snapshot"]),("name",[name])]
                                  token
@@ -376,4 +375,5 @@ droplet token dropletId0 =
 
 snapshots :: Token -> IO [Snapshot]
 snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
+
 
