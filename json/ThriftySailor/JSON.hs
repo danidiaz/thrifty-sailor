@@ -11,8 +11,8 @@
 
 module ThriftySailor.JSON (
         AliasesFor
-    ,   FieldNamesOf
     ,   alias
+    ,   FieldNamesOf
     ,   recordFromJSON
     ,   recordToJSON
     ) where
@@ -22,7 +22,8 @@ import qualified Data.Aeson.Types
 import           Data.Proxy
 import           Data.Text (Text)            
 import qualified Data.Text as Text
-import           GHC.TypeLits (Symbol,KnownSymbol,symbolVal)
+import           GHC.TypeLits (Symbol,KnownSymbol,symbolVal,TypeError)
+import qualified GHC.TypeLits 
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 import           Generics.SOP.NP
@@ -82,9 +83,23 @@ type family FieldNamesOf r :: [Symbol] where
 
 type family ConstructorOf (a :: M.DatatypeInfo) :: M.ConstructorInfo where
     ConstructorOf ('M.ADT moduleName datatypeName '[constructor]) = constructor
+    ConstructorOf t = 
+        TypeError (GHC.TypeLits.Text "Sorry, this doesn't work for newtypes or "
+                       GHC.TypeLits.:<>: 
+                       GHC.TypeLits.Text "datatypes with multiple constructors."
+                   GHC.TypeLits.:$$: 
+                   GHC.TypeLits.Text "You tried to use it with: "
+                   GHC.TypeLits.:$$: 
+                   GHC.TypeLits.ShowType t)
 
 type family ConstructorNameOf (a :: M.ConstructorInfo) :: Symbol where
     ConstructorNameOf ('M.Record constructorName fields) = constructorName
+    ConstructorNameOf t =
+        TypeError (GHC.TypeLits.Text "Sorry, this only works for plain records."
+                   GHC.TypeLits.:$$: 
+                   GHC.TypeLits.Text "You tried to use it with: "
+                   GHC.TypeLits.:$$: 
+                   GHC.TypeLits.ShowType t)
 
 type family ConstructorFieldNamesOf (a :: M.ConstructorInfo) :: [Symbol] where
     ConstructorFieldNamesOf ('M.Record constructorName fields) = GetFieldNames fields
