@@ -5,12 +5,15 @@ module ThriftySailor.Prelude (
     ,   ZeroMoreThanOne(..)
     ,   unique
     ,   absent
+    ,   log
     ) where
 
+import           Prelude hiding (log)
 import           Control.Monad.Except 
 import           Data.Bifunctor
 import           Data.Foldable
 import           Data.List.NonEmpty
+import           System.IO
 
 eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
 eitherError f = either throwError return . first f
@@ -32,3 +35,7 @@ absent :: (MonadError e' m, Foldable f) => (a -> Bool) -> (NonEmpty a -> e') -> 
 absent predicate errFunc container = case Prelude.filter predicate (Data.Foldable.toList container) of
     [] -> return ()
     a : as -> throwError (errFunc (a :| as))
+
+-- | Emit message on stderr
+log :: String -> IO ()
+log = hPutStr stderr  

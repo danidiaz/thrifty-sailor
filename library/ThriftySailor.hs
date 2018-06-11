@@ -35,6 +35,7 @@ module ThriftySailor (
     ,   deleteSnapshot
     ) where
 
+import           Prelude hiding (log)
 import           Data.Foldable
 import           Data.Traversable
 import           Data.Aeson
@@ -45,8 +46,9 @@ import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
 import           Control.Exception
-import           ThriftySailor.Delays
+
 import           ThriftySailor.Prelude
+import           ThriftySailor.Delays
 import           ThriftySailor.Network (doGET,doPOST,doDELETE,Token)
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
@@ -94,20 +96,24 @@ instance FromJSON Droplet where
 data DropletStatus = New | Active | Off | Archive deriving (Show,Eq)
 
 _New :: Traversal' DropletStatus ()
-_New f = \case New -> pure New <* f ()
-               other -> pure other
+_New f = 
+    \case New -> pure New <* f ()
+          other -> pure other
 
 _Active :: Traversal' DropletStatus ()
-_Active f = \case Active -> pure Active <* f ()
-                  other -> pure other
+_Active f = 
+    \case Active -> pure Active <* f ()
+          other -> pure other
 
 _Off :: Traversal' DropletStatus ()
-_Off f = \case Off -> pure Off <* f ()
-               other -> pure other
+_Off f = 
+    \case Off -> pure Off <* f ()
+          other -> pure other
 
 _Archive :: Traversal' DropletStatus ()
-_Archive f = \case Archive -> pure Archive <* f ()
-                   other -> pure other
+_Archive f = 
+    \case Archive -> pure Archive <* f ()
+          other -> pure other
 
 instance FromJSON DropletStatus where
     parseJSON = withText "Status" $ \v -> 
@@ -168,16 +174,19 @@ instance FromJSON ActionStatus where
             _ -> empty
 
 _ActionInProgress :: Traversal' ActionStatus ()
-_ActionInProgress f = \case ActionInProgress -> pure ActionInProgress <* f ()
-                            other -> pure other
+_ActionInProgress f = 
+    \case ActionInProgress -> pure ActionInProgress <* f ()
+          other -> pure other
 
 _ActionCompleted :: Traversal' ActionStatus ()
-_ActionCompleted f = \case ActionCompleted -> pure ActionCompleted <* f ()
-                           other -> pure other
+_ActionCompleted f = 
+    \case ActionCompleted -> pure ActionCompleted <* f ()
+          other -> pure other
 
 _ActionErrored :: Traversal' ActionStatus ()
-_ActionErrored f = \case ActionErrored -> pure ActionErrored <* f ()
-                         other -> pure other
+_ActionErrored f = 
+    \case ActionErrored -> pure ActionErrored <* f ()
+          other -> pure other
 
 data ActionType = RebootAction
                 | PowerOffAction
@@ -241,11 +250,11 @@ droplets :: Token -> IO [Droplet]
 droplets token = getDroplets <$> doGET "/v2/droplets" token
 
 shutdown :: Token -> DropletId -> IO Action
-shutdown token dropletId' =
-    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId' ++"/actions")
+shutdown token dropletId0 =
+    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
                                  [("type",["shutdown"])]
                                  token
-       putStrLn $ "Initiated shutdown action: " ++ show a
+       log ("Initiated shutdown action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
                 (action token (view actionId a))
@@ -257,7 +266,7 @@ snapshot token dropletId0 name =
     do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
                                  [("type",["snapshot"]),("name",[name])]
                                  token
-       putStrLn $ "Initiated snapshot action: " ++ show a
+       log ("Initiated snapshot action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
                 (action token (view actionId a))
@@ -289,7 +298,7 @@ createDroplet token dc =
                                   ,("image",[Data.Text.pack . show $ _dropletCreationSnapshotId dc])
                                   ]
                                   token
-       putStrLn $ "Initiated droplet creation: " ++ show d
+       log ("Initiated droplet creation: " ++ show d)
        complete (dropletStatus._Void.united)
                 (dropletStatus._Active)
                 (droplet token (view dropletId d))
@@ -304,7 +313,7 @@ complete errCheck doneCheck action =
                 . giveUp (seconds 360)
                 . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
                 $ do a <- action
-                     putStrLn $ "Checked again, and the result was: " ++ show a
+                     log ("Checked again, and the result was: " ++ show a)
                      when (has errCheck a) 
                           (throwIO (userError ("Action error.")))
                      pure $ if has doneCheck a
