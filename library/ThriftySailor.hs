@@ -17,6 +17,13 @@ module ThriftySailor (
     ,   dropletId
     ,   dropletAttrs
     ,   dropletStatus
+    ,   networks
+
+    ,   IF
+    ,   address
+    ,   addressType
+    ,   IPAddressType(..)
+    ,   _PublicIP 
 
     ,   DropletStatus(..)
     ,   _New
@@ -85,6 +92,7 @@ data Droplet = Droplet
                 _dropletId :: DropletId
              ,  _dropletAttrs :: NameRegionSize
              ,  _status :: DropletStatus
+             ,  _networks :: [IF]
              } deriving Show
 
 dropletId :: Lens' Droplet Integer
@@ -96,6 +104,9 @@ dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 dropletStatus :: Lens' Droplet DropletStatus
 dropletStatus f s = _status s & f <&> \a -> s { _status = a }
 
+networks :: Lens' Droplet [IF]
+networks f s = _networks s & f <&> \a -> s { _networks = a }
+
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
         let attrs = NameRegionSize <$> v .: "name"
@@ -105,6 +116,40 @@ instance FromJSON Droplet where
          in Droplet <$> v .: "id"
                     <*> attrs
                     <*> v .: "status"
+                    <*> do networks <- v .: "networks"
+                           networks .: "v4"
+
+data IF = IF
+        {
+             _address :: Text
+        ,    _addressType :: IPAddressType
+        } deriving Show
+
+instance FromJSON IF where
+    parseJSON = withObject "IF" $ \v -> 
+        IF <$> v.: "ip_address"
+           <*> v.: "type"
+
+address :: Lens' IF Text
+address f s = _address s & f <&> \a -> s { _address = a }
+
+addressType :: Lens' IF IPAddressType
+addressType f s = _addressType s & f <&> \a -> s { _addressType = a }
+
+data IPAddressType = PublicIP
+                   | OtherIP
+                   deriving Show
+
+_PublicIP :: Traversal' IPAddressType ()
+_PublicIP f = 
+    \case PublicIP -> pure PublicIP <* f ()
+          other -> pure other
+
+instance FromJSON IPAddressType where
+    parseJSON = withText "IPAddressType" $ \v -> 
+        case v of
+            "public" -> pure PublicIP
+            _ -> pure OtherIP
 
 data DropletStatus = New | Active | Off | Archive deriving (Show,Eq)
 

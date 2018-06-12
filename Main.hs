@@ -19,6 +19,7 @@ import           Control.Lens
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
+import qualified Data.Text             
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 
@@ -29,7 +30,13 @@ import           ThriftySailor (Token
                                ,dropletId
                                ,dropletAttrs
                                ,dropletStatus
+                               ,networks
                                ,DropletStatus(..)
+                               ,IF
+                               ,address
+                               ,addressType
+                               ,IPAddressType(..)
+                               ,_PublicIP 
                                ,shutdownDroplet
                                ,deleteDroplet
                                ,Snapshot
@@ -167,9 +174,14 @@ moveUp token snapshotName0 attrs  =
                    (snapshotMatches snapshotName0 (view regionSlug attrs))
        log "Restoring droplet..."                        
        let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
-       createDroplet token attrs snapshotId0
+       d <- createDroplet token attrs snapshotId0
        log "Deleting snapshot..." 
        deleteSnapshot token (view snapshotId s)
+       log "Echoing droplet on stdout..." 
+       case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
+            ip : [] -> putStrLn (Data.Text.unpack ip)
+            [] -> log "No public ip on droplet!"
+            _  -> log "More than one public ip on droplet!"
        log "Done."
 
 main :: IO ()
@@ -181,7 +193,7 @@ main = do
             . Data.Aeson.Encode.Pretty.encodePretty  
             $ sample 
         Status -> 
-            do (conf,token) <- load
+            do (_,token) <- load
                drops <- droplets token
                print drops
                snaps <- snapshots token

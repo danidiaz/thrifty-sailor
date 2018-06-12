@@ -53,7 +53,14 @@ Droplet names need not be unique.
 
 [Truncated exponential backoff](https://cloud.google.com/storage/docs/exponential-backoff)
 
+[introduction to snapshots](https://www.digitalocean.com/community/tutorials/an-introduction-to-digitalocean-snapshots)
+
+[The only difference between your original droplet and the droplet you create from it's snapshot should be it's assigned IP address.](https://www.digitalocean.com/community/questions/snapshot-and-re-creating-a-server-from-it)
+
+[How To Connect To Your Droplet with SSH](https://www.digitalocean.com/community/tutorials/how-to-connect-to-your-droplet-with-ssh)
+
 # Alternative: doctl
+
 
 [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client)
 
