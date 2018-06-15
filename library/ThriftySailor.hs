@@ -67,6 +67,8 @@ import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
 import           Control.Exception
+import           Data.Generics.Product.Fields (field')
+import           Data.Generics.Sum.Constructors (_Ctor')
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 
@@ -93,7 +95,7 @@ data Droplet = Droplet
              ,  _dropletAttrs :: NameRegionSize
              ,  _status :: DropletStatus
              ,  _networks :: [IF]
-             } deriving Show
+             } deriving (GHC.Generic,Show)
 
 dropletId :: Lens' Droplet Integer
 dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
@@ -102,7 +104,8 @@ dropletAttrs :: Lens' Droplet NameRegionSize
 dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
-dropletStatus f s = _status s & f <&> \a -> s { _status = a }
+--dropletStatus f s = _status s & f <&> \a -> s { _status = a }
+dropletStatus = field' @"_status"
 
 networks :: Lens' Droplet [IF]
 networks f s = _networks s & f <&> \a -> s { _networks = a }
@@ -123,7 +126,7 @@ data IF = IF
         {
              _address :: Text
         ,    _addressType :: IPAddressType
-        } deriving Show
+        } deriving (GHC.Generic,Show)
 
 instance FromJSON IF where
     parseJSON = withObject "IF" $ \v -> 
@@ -134,16 +137,15 @@ address :: Lens' IF Text
 address f s = _address s & f <&> \a -> s { _address = a }
 
 addressType :: Lens' IF IPAddressType
-addressType f s = _addressType s & f <&> \a -> s { _addressType = a }
+--addressType f s = _addressType s & f <&> \a -> s { _addressType = a }
+addressType = field' @"_addressType"
 
 data IPAddressType = PublicIP
                    | OtherIP
-                   deriving Show
+                   deriving (GHC.Generic,Show)
 
 _PublicIP :: Traversal' IPAddressType ()
-_PublicIP f = 
-    \case PublicIP -> pure PublicIP <* f ()
-          other -> pure other
+_PublicIP = _Ctor' @"PublicIP"
 
 instance FromJSON IPAddressType where
     parseJSON = withText "IPAddressType" $ \v -> 
