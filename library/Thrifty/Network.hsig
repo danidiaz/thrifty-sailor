@@ -1,4 +1,4 @@
-signature ThriftySailor.Network where
+signature Thrifty.Network where
 
 import           Data.Aeson (FromJSON)
 import           Data.Text(Text)

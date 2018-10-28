@@ -23,8 +23,8 @@ import qualified Data.Text
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 
-import           ThriftySailor.Prelude
-import           ThriftySailor (Token
+import           Thrifty.Prelude
+import           Thrifty (Token
                                ,Droplet
                                ,droplets
                                ,dropletId
@@ -52,7 +52,7 @@ import           ThriftySailor (Token
                                ,name
                                ,regionSlug
                                ,createDroplet)
-import           ThriftySailor.JSON
+import           Thrifty.JSON
 
 
 data Config = Config 

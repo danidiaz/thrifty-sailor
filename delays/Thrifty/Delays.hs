@@ -1,5 +1,5 @@
 {-# LANGUAGE NumDecimals #-}
-module ThriftySailor.Delays (
+module Thrifty.Delays (
      Seconds
    , seconds
    , Factor

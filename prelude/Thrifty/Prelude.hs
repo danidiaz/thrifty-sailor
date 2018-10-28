@@ -1,5 +1,5 @@
 {-# language RankNTypes #-}
-module ThriftySailor.Prelude (
+module Thrifty.Prelude (
         eitherError
     ,   maybeError
     ,   ZeroMoreThanOne(..)

@@ -1,4 +1,4 @@
-module ThriftySailor.Network (
+module Thrifty.Network (
         Token
     ,   doGET
     ,   doPOST

@@ -8,7 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveFunctor #-}
 
-module ThriftySailor.JSON (
+module Thrifty.JSON (
         AliasesFor
     ,   alias
     ,   FieldNamesOf

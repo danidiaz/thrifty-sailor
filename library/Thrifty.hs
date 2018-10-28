@@ -8,7 +8,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module ThriftySailor (
+module Thrifty (
         Token
 
     ,   droplets
@@ -72,10 +72,10 @@ import           Data.Generics.Sum.Constructors (_Ctor')
 import qualified GHC.Generics as GHC
 import           Generics.SOP
 
-import           ThriftySailor.Prelude
-import           ThriftySailor.Delays
-import           ThriftySailor.JSON
-import           ThriftySailor.Network (doGET,doPOST,doDELETE,Token)
+import           Thrifty.Prelude
+import           Thrifty.Delays
+import           Thrifty.JSON
+import           Thrifty.Network (doGET,doPOST,doDELETE,Token)
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
