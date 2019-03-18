@@ -130,10 +130,10 @@ doable :: (Show target, Show source)
 doable listTargets checkTarget listSources checkSource =
     do log "Checking that target doesn't already exist..."
        ts <- listTargets
-       absent errorShow (filter checkTarget ts)
+       liftError errorShow (absence (filter checkTarget ts))
        log "Checking that the source exists..."
        ss <- listSources
-       s <- unique errorShow (filter checkSource ss)
+       s <- liftError errorShow (uniqueness (filter checkSource ss))
        pure s
 
 dropletMatches :: NameRegionSize -> Droplet -> Bool 
