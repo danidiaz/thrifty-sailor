@@ -2,29 +2,29 @@
 
 ## Build / Devel
 
-    ghcid --command="cabal new-repl exe:thrifty-sailor"
+    ghcid --command="cabal v2-repl exe:thrifty"
 
-    ghcid --command="cabal new-repl lib:thrifty-sailor"
+    ghcid --command="cabal v2-repl lib:thrifty"
 
-    ghcid --command="cabal new-repl lib:delays"
+    ghcid --command="cabal v2-repl lib:delays"
 
-    ghcid --command="cabal new-repl lib:prelude"
+    ghcid --command="cabal v2-repl lib:prelude"
 
 ghcid and repls can be opened directly in Vim's :term
 
-    :below terminal ++rows=10 ghcid --command="cabal new-repl lib:delays"
+    :below terminal ++rows=10 ghcid --command="cabal v2-repl lib:delays"
 
-    :below terminal ++rows=10 ghcid --command="cabal new-repl exe:thrifty-sailor"
+    :below terminal ++rows=10 ghcid --command="cabal v2-repl exe:thrifty"
 
-    :below terminal ++close ++rows=10 cabal new-repl exe:thrifty-sailor
+    :below terminal ++close ++rows=10 cabal new-repl exe:thrifty
  
 To actually build and run:
 
     cabal new-build
 
-    cabal new-run exe:thrifty-sailor -- status
+    cabal new-run exe:thrifty -- status
 
-    cabal new-run exe:thrifty-sailor -- down
+    cabal new-run exe:thrifty -- down
 
 ## Digital Ocean API
 

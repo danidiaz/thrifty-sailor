@@ -54,11 +54,12 @@ import           Thrifty (Token
                                ,createDroplet)
 import           Thrifty.JSON
 
+doTokenVar :: String 
+doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 
 
 data Config = Config 
             { 
-                _doTokenEnvVar :: String 
-            ,   _configDropletAttrs :: NameRegionSize
+                _configDropletAttrs :: NameRegionSize
             ,   _configSnapshotName :: Text
             } deriving (Show,GHC.Generic)
 
@@ -67,8 +68,7 @@ instance HasDatatypeInfo Config
 
 configAliases :: AliasesFor (FieldNamesOf Config)
 configAliases =
-      alias @"_doTokenEnvVar"      "token_environment_variable"
-   :* alias @"_configDropletAttrs" "droplet"
+      alias @"_configDropletAttrs" "droplet"
    :* alias @"_configSnapshotName" "snapshot_name"
    :* Nil
 
@@ -79,8 +79,7 @@ instance ToJSON Config where
     toJSON = recordToJSON configAliases
 
 sample :: Config
-sample = Config "DIGITAL_OCEAN_TOKEN"
-                (NameRegionSize "dummy-droplet-name"
+sample = Config (NameRegionSize "dummy-droplet-name"
                                 (RegionSlug "ams3")
                                 "s-1vcpu-1gb")
                 "dummy-snapshot-name"
@@ -119,8 +118,8 @@ parserInfo =
     infoHelpDesc p desc = O.info (O.helper <*> p) (O.fullDesc <> O.progDesc desc)
 
     subcommand :: O.Parser a -> NameDesc -> Mod CommandFields a
-    subcommand p (NameDesc {optionName,optionDesc}) = 
-        O.command optionName (infoHelpDesc p optionDesc)
+    subcommand p nd = 
+        O.command (optionName nd) (infoHelpDesc p (optionDesc nd))
 
 doable :: (Show target, Show source)
        => IO [target]
@@ -131,10 +130,10 @@ doable :: (Show target, Show source)
 doable listTargets checkTarget listSources checkSource =
     do log "Checking that target doesn't already exist..."
        ts <- listTargets
-       absent checkTarget (userError . show) ts
+       absent errorShow (filter checkTarget ts)
        log "Checking that the source exists..."
        ss <- listSources
-       s <- unique checkSource (userError . show) ss
+       s <- unique errorShow (filter checkSource ss)
        pure s
 
 dropletMatches :: NameRegionSize -> Droplet -> Bool 
@@ -193,24 +192,21 @@ main = do
             . Data.Aeson.Encode.Pretty.encodePretty  
             $ sample 
         Status -> 
-            do (_,token) <- load
+            do token <- getEnv doTokenVar
                drops <- droplets token
                print drops
                snaps <- snapshots token
                print snaps
         Up ->
-            do (conf,token) <- load
+            do token <- getEnv doTokenVar
+               conf <- load
                moveUp token (_configSnapshotName conf) (_configDropletAttrs conf)
         Down ->
-            do (conf,token) <- load
+            do token <- getEnv doTokenVar
+               conf <- load
                moveDown token (_configDropletAttrs conf) (_configSnapshotName conf)
   where
-    load :: IO (Config,Token)
-    load = 
-        do path <- xdgConfPath
-           conf <-  do e <- eitherDecodeFileStrict' path
-                       eitherError userError e
-           token <- do m <- lookupEnv (_doTokenEnvVar conf)
-                       let message = "Token " ++ (_doTokenEnvVar conf) ++ " not found in environment." 
-                       maybeError (userError message) m
-           return (conf,token)
+    load :: IO Config
+    load = xdgConfPath >>= eitherDecodeFileStrict >>= liftError userError 
+
+

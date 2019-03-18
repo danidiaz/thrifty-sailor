@@ -413,7 +413,7 @@ complete errCheck doneCheck action =
                      pure $ if has doneCheck a
                                 then Right a
                                 else Left ()
-       eitherError (const (userError ("Timeout waiting."))) retries
+       liftError (const (userError ("Timeout waiting."))) retries
 
 action :: Token -> ActionId -> IO Action
 action token actionId0 = 

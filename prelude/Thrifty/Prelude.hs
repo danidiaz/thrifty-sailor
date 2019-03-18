@@ -1,7 +1,7 @@
-{-# language RankNTypes #-}
+{-# language RankNTypes, MultiParamTypeClasses, TypeFamilies, FlexibleInstances #-}
 module Thrifty.Prelude (
-        eitherError
-    ,   maybeError
+        LiftError (..)
+    ,   errorShow
     ,   ZeroMoreThanOne(..)
     ,   unique
     ,   absent
@@ -14,25 +14,35 @@ import           Data.Bifunctor
 import           Data.Foldable
 import           Data.List.NonEmpty
 import           System.IO
+import           Data.Kind
 
-eitherError :: MonadError e' m => (e -> e') -> Either e r -> m r 
-eitherError f = either throwError return . first f
+class LiftError (k :: Type -> Type) (e :: Type) where
+    type Adapter k e :: Type
+    liftError :: MonadError e m => Adapter k e -> k r -> m r 
 
-maybeError :: MonadError e' m => e' -> Maybe r -> m r 
-maybeError e' = maybe (throwError e') return
+instance LiftError (Either e') e where
+    type Adapter (Either e') e = e' -> e
+    liftError f = either throwError return . first f
+
+instance LiftError Maybe e where
+    type Adapter Maybe e = e
+    liftError e = maybe (throwError e) return
+
+errorShow :: Show x => x -> IOError
+errorShow = userError . show
 
 data ZeroMoreThanOne a = Zero
                        | MoreThanOne a a [a]
                        deriving (Show,Eq)
 
-unique :: (MonadError e' m, Foldable f) => (a -> Bool) -> (ZeroMoreThanOne a -> e') -> f a -> m a 
-unique predicate errFunc container = case Prelude.filter predicate (Data.Foldable.toList container) of
+unique :: (MonadError e' m, Foldable f) => (ZeroMoreThanOne a -> e') -> f a -> m a 
+unique errFunc container = case Data.Foldable.toList container of
     [] -> throwError (errFunc Zero)
     a : [] -> return a
     a : a' : as -> throwError (errFunc (MoreThanOne a a' as))
 
-absent :: (MonadError e' m, Foldable f) => (a -> Bool) -> (NonEmpty a -> e') -> f a -> m ()
-absent predicate errFunc container = case Prelude.filter predicate (Data.Foldable.toList container) of
+absent :: (MonadError e' m, Foldable f) => (NonEmpty a -> e') -> f a -> m ()
+absent errFunc container = case Data.Foldable.toList container of
     [] -> return ()
     a : as -> throwError (errFunc (a :| as))
 
