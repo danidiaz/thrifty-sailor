@@ -8,6 +8,8 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Thrifty (
         Token
 
@@ -69,8 +71,8 @@ import qualified Data.Text
 import           Control.Exception
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
-import qualified GHC.Generics as GHC
-import           Generics.SOP
+import           GHC.Generics
+import           Data.RBR
 
 import           Thrifty.Prelude
 import           Thrifty.Delays
@@ -95,7 +97,7 @@ data Droplet = Droplet
              ,  _dropletAttrs :: NameRegionSize
              ,  _status :: DropletStatus
              ,  _networks :: [IF]
-             } deriving (GHC.Generic,Show)
+             } deriving (Generic,Show)
 
 dropletId :: Lens' Droplet Integer
 dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
@@ -126,7 +128,7 @@ data IF = IF
         {
              _address :: Text
         ,    _addressType :: IPAddressType
-        } deriving (GHC.Generic,Show)
+        } deriving (Generic,Show)
 
 instance FromJSON IF where
     parseJSON = withObject "IF" $ \v -> 
@@ -142,7 +144,7 @@ addressType = field' @"_addressType"
 
 data IPAddressType = PublicIP
                    | OtherIP
-                   deriving (GHC.Generic,Show)
+                   deriving (Generic,Show)
 
 _PublicIP :: Traversal' IPAddressType ()
 _PublicIP = _Ctor' @"PublicIP"
@@ -191,7 +193,7 @@ instance FromJSON WrappedDroplet where
         WrappedDroplet <$> v .: "droplet"
 
 
-newtype RegionSlug = RegionSlug { getRegionSlug :: Text } deriving (Show,Eq,GHC.Generic)
+newtype RegionSlug = RegionSlug { getRegionSlug :: Text } deriving (Show,Eq,Generic)
 
 deriving newtype instance FromJSON RegionSlug 
 deriving newtype instance ToJSON RegionSlug 
@@ -352,17 +354,17 @@ data NameRegionSize = NameRegionSize
                          _name :: Text
                     ,    _regionSlug :: RegionSlug
                     ,    _sizeSlug :: Text      
-                    } deriving (GHC.Generic,Eq,Show)
+                    } deriving (Generic,Eq,Show)
 
-instance Generic NameRegionSize
-instance HasDatatypeInfo NameRegionSize
+instance ToRecord NameRegionSize
+instance FromRecord NameRegionSize
 
-nameRegionSizeAliases :: AliasesFor (FieldNamesOf NameRegionSize)
+nameRegionSizeAliases :: Aliases _
 nameRegionSizeAliases =
-      alias @"_name"       "name"
-   :* alias @"_regionSlug" "region_slug"
-   :* alias @"_sizeSlug"   "size_slug"
-   :* Nil
+     alias @"_name"       "name"
+   . alias @"_regionSlug" "region_slug"
+   . alias @"_sizeSlug"   "size_slug"
+   $ unit
 
 -- | Used only in Config object.
 instance FromJSON NameRegionSize where

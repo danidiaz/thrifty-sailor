@@ -46,17 +46,6 @@ absence container = case Data.Foldable.toList container of
     []          -> Right $ ()
     a : as      -> Left $ a :| as
 
--- unique :: (MonadError e' m, Foldable f) => (ZeroMoreThanOne a -> e') -> f a -> m a 
--- unique errFunc container = case Data.Foldable.toList container of
---     [] -> throwError (errFunc Zero)
---     a : [] -> return a
---     a : a' : as -> throwError (errFunc (MoreThanOne a a' as))
-
--- absent :: (MonadError e' m, Foldable f) => (NonEmpty a -> e') -> f a -> m ()
--- absent errFunc container = case Data.Foldable.toList container of
---     [] -> return ()
---     a : as -> throwError (errFunc (a :| as))
-
 -- | Emit message on stderr
 log :: String -> IO ()
 log = hPutStrLn stderr  

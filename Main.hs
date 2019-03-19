@@ -3,6 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Main where
 
 import           Prelude hiding (log)
@@ -20,8 +22,8 @@ import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             
-import qualified GHC.Generics as GHC
-import           Generics.SOP
+import           GHC.Generics 
+import           Data.RBR
 
 import           Thrifty.Prelude
 import           Thrifty (Token
@@ -61,16 +63,16 @@ data Config = Config
             { 
                 _configDropletAttrs :: NameRegionSize
             ,   _configSnapshotName :: Text
-            } deriving (Show,GHC.Generic)
+            } deriving (Show,Generic)
 
-instance Generic Config
-instance HasDatatypeInfo Config
+instance FromRecord Config
+instance ToRecord Config
 
-configAliases :: AliasesFor (FieldNamesOf Config)
+configAliases :: Aliases _
 configAliases =
-      alias @"_configDropletAttrs" "droplet"
-   :* alias @"_configSnapshotName" "snapshot_name"
-   :* Nil
+     alias @"_configDropletAttrs" "droplet"
+   . alias @"_configSnapshotName" "snapshot_name"
+   $ unit
 
 instance FromJSON Config where
     parseJSON = recordFromJSON configAliases
@@ -208,5 +210,4 @@ main = do
   where
     load :: IO Config
     load = xdgConfPath >>= eitherDecodeFileStrict >>= liftError userError 
-
 
