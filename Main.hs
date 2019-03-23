@@ -26,35 +26,36 @@ import           GHC.Generics
 import           Data.RBR
 
 import           Thrifty.Prelude
-import           Thrifty (Token
-                               ,Droplet
-                               ,droplets
-                               ,dropletId
-                               ,dropletAttrs
-                               ,dropletStatus
-                               ,networks
-                               ,DropletStatus(..)
-                               ,IF
-                               ,address
-                               ,addressType
-                               ,IPAddressType(..)
-                               ,_PublicIP 
-                               ,shutdownDroplet
-                               ,deleteDroplet
-                               ,Snapshot
-                               ,snapshots
-                               ,SnapshotName
-                               ,snapshotName
-                               ,snapshotId
-                               ,snapshotRegionSlugs
-                               ,createSnapshot
-                               ,deleteSnapshot
-                               ,NameRegionSize(..)
-                               ,RegionSlug(..)
-                               ,name
-                               ,regionSlug
-                               ,createDroplet)
 import           Thrifty.JSON
+import           Thrifty.DO 
+                         (Token
+                         ,Droplet
+                         ,droplets
+                         ,dropletId
+                         ,dropletAttrs
+                         ,dropletStatus
+                         ,networks
+                         ,DropletStatus(..)
+                         ,IF
+                         ,address
+                         ,addressType
+                         ,IPAddressType(..)
+                         ,_PublicIP 
+                         ,shutdownDroplet
+                         ,deleteDroplet
+                         ,Snapshot
+                         ,snapshots
+                         ,SnapshotName
+                         ,snapshotName
+                         ,snapshotId
+                         ,snapshotRegionSlugs
+                         ,createSnapshot
+                         ,deleteSnapshot
+                         ,NameRegionSize(..)
+                         ,RegionSlug(..)
+                         ,name
+                         ,regionSlug
+                         ,createDroplet)
 
 doTokenVar :: String 
 doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 

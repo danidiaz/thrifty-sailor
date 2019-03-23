@@ -10,7 +10,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
-module Thrifty (
+module Thrifty.DO (
         Token
 
     ,   droplets

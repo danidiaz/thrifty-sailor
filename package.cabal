@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                thrifty
-version:             0.2.1.0
+version:             0.3
 -- synopsis:            
 -- description:         
 license:             MIT
@@ -29,16 +29,16 @@ executable thrifty
         mtl                  >=2.2.2,
         red-black-record     >=2.0.2.2,
         optparse-applicative >=0.14.0.0 && < 0.15,
-        thrifty,
-        thrifty-network,
+        t-do,
+        t-network,
         thrifty-json,
         prelude
     default-language:    Haskell2010
     -- ghc-options: -fno-warn-partial-type-signatures
 
-library
+library t-do
   exposed-modules:     
-        Thrifty
+        Thrifty.DO
   build-depends:
         base             >=4.10 && <5,
         text             >=1.2 && <1.3,
@@ -46,11 +46,11 @@ library
         lens             >=4.4 && <5,
         red-black-record >=2.0.2.2,
         generic-lens     >=1.0.0.0,
-        thrifty-network-sig,
+        t-network-sig,
         delays,
         thrifty-json,
         prelude
-  hs-source-dirs:      library
+  hs-source-dirs:      do
   default-language:    Haskell2010
   
 library thrifty-json
@@ -76,7 +76,7 @@ library delays
   hs-source-dirs:      delays
   default-language:    Haskell2010
 
-library thrifty-network-sig
+library t-network-sig
   signatures:
         Thrifty.Network
   build-depends:
@@ -86,7 +86,7 @@ library thrifty-network-sig
   hs-source-dirs:      network-sig
   default-language:    Haskell2010
 
-library thrifty-network
+library t-network
   exposed-modules:     
         Thrifty.Network
   build-depends:
