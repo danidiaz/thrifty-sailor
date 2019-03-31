@@ -4,6 +4,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Thrifty.Main (defaultMain) where
 
@@ -43,10 +44,7 @@ data Config = Config
             { 
                 _configDropletAttrs :: NameRegionSize
             ,   _configSnapshotName :: Text
-            } deriving (Show,Generic)
-
-instance FromRecord Config
-instance ToRecord Config
+            } deriving (Show,Generic,FromRecord,ToRecord)
 
 configAliases :: Aliases _
 configAliases =

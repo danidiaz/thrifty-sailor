@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -359,10 +360,7 @@ data NameRegionSize = NameRegionSize
                          _name :: Text
                     ,    _regionSlug :: RegionSlug
                     ,    _sizeSlug :: Text      
-                    } deriving (Generic,Eq,Show)
-
-instance ToRecord NameRegionSize
-instance FromRecord NameRegionSize
+                    } deriving (Generic,Eq,Show,ToRecord,FromRecord)
 
 nameRegionSizeAliases :: Aliases _
 nameRegionSizeAliases =
