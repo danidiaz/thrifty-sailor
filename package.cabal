@@ -45,6 +45,15 @@ library t-main
   hs-source-dirs:      main
   default-language:    Haskell2010
 
+library t-t
+  exposed-modules:     
+        Thrifty
+  build-depends:
+        base             >=4.10 && <5,
+        prelude
+  hs-source-dirs:      thrifty
+  default-language:    Haskell2010
+
 library t-do
   exposed-modules:     
         Thrifty.DO
@@ -59,7 +68,9 @@ library t-do
         t-network-sig,
         delays,
         thrifty-json,
+        t-t,
         prelude
+
   hs-source-dirs:      do
   default-language:    Haskell2010
   
