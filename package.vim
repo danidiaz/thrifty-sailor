@@ -1,4 +1,4 @@
-set path=$PWD,$PWD/library,$PWD/delays,$PWD/prelude
+set path=$PWD,$PWD/library,$PWD/delays,$PWD/prelude,$PWD/main,$PWD/do
 set suffixesadd=.hs
 set includeexpr=substitute(v:fname,'\\.','/','g')
 set wildignore+=dist-newstyle/*
@@ -7,7 +7,7 @@ set include=^import\\\s*\\\(qualified\\\)\\\?
 
 argadd package.cabal README.md Main.hs
 
-function! GHCId(which)
+function! Ghcid(which)
     if     a:which == "exe"
         let l:target = "exe:thrifty-sailor"
     elseif a:which == "lib"
@@ -22,7 +22,7 @@ function! GHCId(which)
     execute "below terminal ++rows=10 ghcid --command=\"cabal new-repl" l:target "\""
 endfunction
 
-command! -nargs=1 GHCId call GHCId("<args>") 
+command! -nargs=1 Ghcid call Ghcid("<args>") 
 
 function! CabalRepl(which)
     if     a:which == "exe"
@@ -39,5 +39,5 @@ function! CabalRepl(which)
     execute "below terminal ++rows=10 cabal new-repl" l:target
 endfunction
 
-command! -nargs=1 GHCId call GHCId("<args>") 
+command! -nargs=1 Ghcid call Ghcid("<args>") 
 command! -nargs=1 CabalRepl call CabalRepl("<args>") 
