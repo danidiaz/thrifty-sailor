@@ -24,6 +24,9 @@ import           Data.SOP
 import           Data.SOP.NP
 import           Data.Functor.Compose
 import           Data.String (fromString)
+import           Data.Proxy
+import           GHC.Generics
+import           GHC.TypeLits
 
 type Aliases t = Record (K String) t
 
@@ -31,29 +34,36 @@ alias :: forall k v t. Insertable k v t => String -> Aliases t -> Aliases (Inser
 alias = insert @k @v . K
 
 recordFromJSON 
-    :: forall r c flat. (FromRecord r, 
+    :: forall r c flat name m package stuff
+                      . (Generic r,
+                         Rep r ~ D1 ('MetaData name m package 'False) stuff,
+                         KnownSymbol name,
+                         --
+                         FromRecord r, 
                          RecordCode r ~ c, 
                          Productlike '[] c flat, 
                          All FromJSON flat) 
-    => Record (K String) c
+    => Aliases c
     -> Data.Aeson.Value 
     -> Data.Aeson.Types.Parser r
 recordFromJSON aliases = 
-    let mapKSS (K name) (Compose pf) = Compose (\o -> Data.Aeson.Types.explicitParseField pf o (fromString name))
-        pr = cpure_NP (Proxy @FromJSON) (Compose parseJSON)
-        Compose parser = fromNP <$> sequence_NP (liftA2_NP mapKSS (toNP @c aliases) pr)
-     in withObject "obj" $ \o -> fromRecord <$> parser o
+    let giveFieldName (K alias) (Compose f) = Compose (\o -> Data.Aeson.Types.explicitParseField f o (fromString alias))
+        parsers = cpure_NP (Proxy @FromJSON) (Compose parseJSON)
+        Compose parser = fromNP <$> sequence_NP (liftA2_NP giveFieldName (toNP aliases) parsers)
+     -- TODO put actual name of the object here, for better diagnostics
+     in withObject (symbolVal (Proxy @name)) $ \o -> fromRecord <$> parser o
 
 recordToJSON 
     :: forall r c flat. (ToRecord r, 
                          RecordCode r ~ c, 
                          Productlike '[] c flat, 
                          All ToJSON flat) 
-    => Record (K String) c
+    => Aliases c
     -> r
     -> Data.Aeson.Value
 recordToJSON aliases r = 
-    let pairs = 
-            hcliftA2 (Proxy @ToJSON) (\(K a) (I x) -> K ((fromString a) .= x)) (toNP aliases) (toNP (toRecord r))
+    let giveFieldName (K alias) (I fieldValue) = K (fromString alias .= fieldValue)
+        pairs = 
+            hcliftA2 (Proxy @ToJSON) giveFieldName (toNP aliases) (toNP (toRecord r))
      in object (hcollapse pairs)
 
