@@ -5,7 +5,7 @@ set wildignore+=dist-newstyle/*
 
 set include=^import\\\s*\\\(qualified\\\)\\\?
 
-argadd package.cabal README.md Main.hs
+argadd package.cabal README.md
 
 " https://www.gilesorr.com/blog/vim-variable-scope.html
 let s:targets = { 'exe' : 'exe:thrifty', 'lib' : 'lib:thrifty', 'prelude' : 'lib:prelude', 'delays' : 'lib:delays', 'json' : 'lib:thrifty-json', 'network' : 'lib:t-network' , 'do' : 'lib:t-do' }
