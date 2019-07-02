@@ -1,4 +1,4 @@
-set path=$PWD,$PWD/library,$PWD/delays,$PWD/prelude,$PWD/main,$PWD/do
+set path=$PWD,$PWD/delays,$PWD/do,$PWD/json,$PWD/main,$PWD/network,$$PWD/network-sig,$$PWD/prelude,$PWD/thrifty
 set suffixesadd=.hs
 set includeexpr=substitute(v:fname,'\\.','/','g')
 set wildignore+=dist-newstyle/*
@@ -7,37 +7,23 @@ set include=^import\\\s*\\\(qualified\\\)\\\?
 
 argadd package.cabal README.md Main.hs
 
+" https://www.gilesorr.com/blog/vim-variable-scope.html
+let s:targets = { 'exe' : 'exe:thrifty', 'lib' : 'lib:thrifty', 'prelude' : 'lib:prelude', 'delays' : 'lib:delays', 'json' : 'lib:thrifty-json', 'network' : 'lib:t-network' , 'do' : 'lib:t-do' }
+
+function CabalTargets()
+    echo s:targets
+endfunction
+
+command! CabalTargets call CabalTargets()
+
 function! Ghcid(which)
-    if     a:which == "exe"
-        let l:target = "exe:thrifty-sailor"
-    elseif a:which == "lib"
-        let l:target = "lib:thrifty-sailor"
-    elseif a:which == "prelude"
-        let l:target = "lib:prelude"
-    elseif a:which == "delays"
-        let l:target = "lib:delays"
-    elseif a:which == "json"
-        let l:target = "lib:thrifty-json"
-    endif
-    execute "below terminal ++rows=10 ghcid --command=\"cabal new-repl" l:target "\""
+    execute "below terminal ++rows=10 ghcid --command=\"cabal v2-repl" s:targets[a:which] "\""
 endfunction
 
 command! -nargs=1 Ghcid call Ghcid("<args>") 
 
 function! CabalRepl(which)
-    if     a:which == "exe"
-        let l:target = "exe:thrifty-sailor"
-    elseif a:which == "lib"
-        let l:target = "lib:thrifty-sailor"
-    elseif a:which == "prelude"
-        let l:target = "lib:prelude"
-    elseif a:which == "delays"
-        let l:target = "lib:delays"
-    elseif a:which == "json"
-        let l:target = "lib:thrifty-json"
-    endif
-    execute "below terminal ++rows=10 cabal new-repl" l:target
+    execute "below terminal ++rows=10 cabal v2-repl" s:targets[a:which]
 endfunction
 
-command! -nargs=1 Ghcid call Ghcid("<args>") 
 command! -nargs=1 CabalRepl call CabalRepl("<args>") 
