@@ -1,4 +1,4 @@
-set path=$PWD,$PWD/delays,$PWD/do,$PWD/json,$PWD/main,$PWD/network,$$PWD/network-sig,$$PWD/prelude,$PWD/thrifty
+set path=.,./delays,./do,./json,./main,./network,./network-sig,./prelude,./thrifty
 set suffixesadd=.hs
 set includeexpr=substitute(v:fname,'\\.','/','g')
 set wildignore+=dist-newstyle/*

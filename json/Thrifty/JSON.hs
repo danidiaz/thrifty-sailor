@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Thrifty.JSON (
         Aliases
@@ -35,10 +36,7 @@ alias = insert @k @v . K
 
 recordFromJSON 
     :: forall r c flat name m package stuff
-                      . (Generic r,
-                         Rep r ~ D1 ('MetaData name m package 'False) stuff,
-                         KnownSymbol name,
-                         --
+                      . (NamedDataType r,
                          FromRecord r, 
                          RecordCode r ~ c, 
                          Productlike '[] c flat, 
@@ -51,7 +49,7 @@ recordFromJSON aliases =
         parsers = cpure_NP (Proxy @FromJSON) (Compose parseJSON)
         Compose parser = fromNP <$> sequence_NP (liftA2_NP giveFieldName (toNP aliases) parsers)
      -- TODO put actual name of the object here, for better diagnostics
-     in withObject (symbolVal (Proxy @name)) $ \o -> fromRecord <$> parser o
+     in withObject (getRecordName (Proxy @r)) $ \o -> fromRecord <$> parser o
 
 recordToJSON 
     :: forall r c flat. (ToRecord r, 
@@ -66,4 +64,10 @@ recordToJSON aliases r =
         pairs = 
             hcliftA2 (Proxy @ToJSON) giveFieldName (toNP aliases) (toNP (toRecord r))
      in object (hcollapse pairs)
+
+class NamedDataType r where
+    getRecordName :: Proxy r -> String 
+
+instance forall r name m package stuff. (Generic r, Rep r ~ D1 ('MetaData name m package 'False) stuff, KnownSymbol name) => NamedDataType r where
+    getRecordName _ = symbolVal (Proxy @name) 
 
