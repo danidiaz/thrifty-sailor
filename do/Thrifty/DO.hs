@@ -60,6 +60,7 @@ module Thrifty.DO (
     ,   doable
     ,   moveUp
     ,   moveDown
+    ,   makeDO
     ) where
 
 import           Prelude hiding (log)
@@ -76,14 +77,44 @@ import qualified Data.Text
 import           Control.Exception
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
-import           GHC.Generics
+import           GHC.Generics (Generic)
 import           Data.RBR
 
 import qualified Data.Text.Read
+
+import           Thrifty
 import           Thrifty.Prelude
 import           Thrifty.Delays
 import           Thrifty.JSON
 import           Thrifty.Network (doGET,doPOST,doDELETE,Token)
+
+--
+data DOServer = DOServer 
+            { 
+                _configDropletAttrs :: NameRegionSize
+            ,   _configSnapshotName :: Text
+            } deriving (Show,Generic,FromRecord,ToRecord)
+
+doServerAliases :: Aliases _
+doServerAliases =
+     alias @"_configDropletAttrs" "droplet"
+   . alias @"_configSnapshotName" "snapshot_name"
+   $ unit
+
+instance FromJSON DOServer where
+    parseJSON = recordFromJSON doServerAliases
+
+instance ToJSON DOServer where
+    toJSON = recordToJSON doServerAliases
+
+makeDO :: Token -> Provider DOServer  
+makeDO token = Provider servers undefined 
+  where
+  servers :: IO [DOServer]
+  servers = do
+    ds <- droplets token
+    let toServer = dropletAttrs.to (\x -> DOServer x (view name x <> "_snapshot"))
+    pure (toListOf (folded.toServer) ds)
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
