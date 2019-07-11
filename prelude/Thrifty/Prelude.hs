@@ -13,6 +13,7 @@ import           Control.Monad.Except
 import           Data.Bifunctor
 import           Data.Foldable
 import           Data.List.NonEmpty
+import           Control.Monad.IO.Class
 import           System.IO
 import           Data.Kind
 
@@ -47,5 +48,5 @@ absence container = case Data.Foldable.toList container of
     a : as      -> Left $ a :| as
 
 -- | Emit message on stderr
-log :: String -> IO ()
-log = hPutStrLn stderr  
+log :: MonadIO m => String -> m ()
+log = liftIO . hPutStrLn stderr

@@ -10,6 +10,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE BlockArguments #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Thrifty.DO (
         Token
@@ -71,6 +73,7 @@ import           Data.Aeson
 import           Data.Monoid
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.Trans.Except
 import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
@@ -108,13 +111,35 @@ instance ToJSON DOServer where
     toJSON = recordToJSON doServerAliases
 
 makeDO :: Token -> Provider DOServer  
-makeDO token = Provider servers undefined 
+makeDO token = Provider servers upOrDown 
   where
   servers :: IO [DOServer]
   servers = do
     ds <- droplets token
     let toServer = dropletAttrs.to (\x -> DOServer x (view name x <> "_snapshot"))
     pure (toListOf (folded.toServer) ds)
+  upOrDown (DOServer { _configDropletAttrs, _configSnapshotName }) = do
+    log "Checking if target is droplet n' source is snapshot."
+    s' <- runExceptT $
+        doable 
+        (droplets token)
+        (dropletMatches  _configDropletAttrs)
+        (snapshots token)
+        (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
+    case s' of
+        Right s -> return (Up do
+            log "Restoring droplet..."                        
+            let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
+            d <- createDroplet token _configDropletAttrs snapshotId0
+            log "Deleting snapshot..." 
+            deleteSnapshot token (view snapshotId s)
+            log "Echoing droplet on stdout..." 
+            case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
+                 ip : [] -> putStrLn (Data.Text.unpack ip)
+                 [] -> log "No public ip on droplet!"
+                 _  -> log "More than one public ip on droplet!"
+            log "Done.")
+        Left _ -> _
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
@@ -351,8 +376,8 @@ instance FromJSON WrappedAction where
     parseJSON = withObject "WrappedAction" $ \v -> 
         WrappedAction <$> v .: "action"
 
-droplets :: Token -> IO [Droplet]
-droplets token = getDroplets <$> doGET "/v2/droplets" token
+droplets :: MonadIO m => Token -> m [Droplet]
+droplets token = getDroplets <$> liftIO (doGET "/v2/droplets" token)
 
 shutdownDroplet :: Token -> DropletId -> IO Action
 shutdownDroplet token dropletId0 =
@@ -456,21 +481,21 @@ action token actionId0 =
     do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId0) token
        return a
 
-droplet :: Token -> DropletId -> IO Droplet
+droplet :: MonadIO m => Token -> DropletId -> m Droplet
 droplet token dropletId0 = 
-    do WrappedDroplet d <- doGET ("/v2/droplets/" ++ show dropletId0) token
+    do WrappedDroplet d <- liftIO (doGET ("/v2/droplets/" ++ show dropletId0) token)
        return d
 
-snapshots :: Token -> IO [Snapshot]
-snapshots token = getSnapshots <$> doGET "/v2/snapshots/?resource_type=droplet" token
+snapshots :: MonadIO m => Token -> m [Snapshot]
+snapshots token = getSnapshots <$> liftIO (doGET "/v2/snapshots/?resource_type=droplet" token)
 
 
-doable :: (Show target, Show source)
-       => IO [target]
+doable :: (Show target, Show source,MonadError IOException m,MonadIO m)
+       => m [target]
        -> (target -> Bool)
-       -> IO [source]
+       -> m [source]
        -> (source -> Bool)
-       -> IO source
+       -> m source
 doable listTargets checkTarget listSources checkSource =
     do log "Checking that target doesn't already exist..."
        ts <- listTargets

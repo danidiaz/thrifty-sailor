@@ -5,7 +5,7 @@ import Data.Aeson
 
 data Provider server = Provider {
         listServers :: IO [server],
-        serverState :: server -> ServerState IO
+        serverState :: server -> IO (ServerState IO)
     }
 
 data ServerState m = 
