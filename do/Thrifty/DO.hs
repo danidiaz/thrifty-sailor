@@ -139,7 +139,27 @@ makeDO token = Provider servers upOrDown
                  [] -> log "No public ip on droplet!"
                  _  -> log "More than one public ip on droplet!"
             log "Done.")
-        Left _ -> _
+        Left _ -> 
+          do log "Target is snapshot, source is droplet."
+             d' <- runExceptT $ 
+                 doable 
+                 (snapshots token)
+                 (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
+                 (droplets token)
+                 (dropletMatches _configDropletAttrs)
+             case d' of
+                 Right d -> return (Down do
+                     log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
+                     case view dropletStatus d of
+                         Active -> do shutdownDroplet token (view dropletId d)
+                                      pure ()
+                         Off ->    pure ()
+                         _ ->      throwError (userError ("Droplet not in valid status for snapshot."))
+                     log "Taking snapshot..." 
+                     createSnapshot token _configSnapshotName (view dropletId d) 
+                     log "Deleting droplet..." 
+                     deleteDroplet token (view dropletId d)
+                     log "Done.")
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
