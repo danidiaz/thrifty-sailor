@@ -39,6 +39,7 @@ library thrifty-main
         red-black-record     >=2.0.2.2,
         optparse-applicative >=0.14.0.0 && < 0.15,
         prelude,
+        thrifty,
         thrifty-json,
         t-do,
         t-network

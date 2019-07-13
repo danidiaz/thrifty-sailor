@@ -63,6 +63,7 @@ module Thrifty.DO (
     ,   moveUp
     ,   moveDown
     ,   makeDO
+    ,   DOServer(..)
     ) where
 
 import           Prelude hiding (log)
@@ -127,7 +128,7 @@ makeDO token = Provider servers upOrDown
         (snapshots token)
         (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
     case s' of
-        Right s -> return (Up do
+        Right s -> return (ServerUp do
             log "Restoring droplet..."                        
             let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
             d <- createDroplet token _configDropletAttrs snapshotId0
@@ -148,7 +149,7 @@ makeDO token = Provider servers upOrDown
                  (droplets token)
                  (dropletMatches _configDropletAttrs)
              case d' of
-                 Right d -> return (Down do
+                 Right d -> return (ServerDown do
                      log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
                      case view dropletStatus d of
                          Active -> do shutdownDroplet token (view dropletId d)
@@ -160,6 +161,7 @@ makeDO token = Provider servers upOrDown
                      log "Deleting droplet..." 
                      deleteDroplet token (view dropletId d)
                      log "Done.")
+                 Left _ -> throwIO (userError "server in strange state") 
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/

@@ -27,6 +27,7 @@ import           Data.RBR
 
 import           Thrifty.Prelude
 import           Thrifty.JSON
+import           Thrifty
 import           Thrifty.DO 
                          (
                              droplets
@@ -35,34 +36,19 @@ import           Thrifty.DO
                          ,   moveDown
                          ,   NameRegionSize(..)
                          ,   RegionSlug(..)
+                         ,   makeDO
+                         ,   DOServer(..)
                          )
 
 doTokenVar :: String 
 doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 
 
-data Config = Config 
-            { 
-                _configDropletAttrs :: NameRegionSize
-            ,   _configSnapshotName :: Text
-            } deriving (Show,Generic,FromRecord,ToRecord)
 
-configAliases :: Aliases _
-configAliases =
-     alias @"_configDropletAttrs" "droplet"
-   . alias @"_configSnapshotName" "snapshot_name"
-   $ unit
-
-instance FromJSON Config where
-    parseJSON = recordFromJSON configAliases
-
-instance ToJSON Config where
-    toJSON = recordToJSON configAliases
-
-sample :: Config
-sample = Config (NameRegionSize "dummy-droplet-name"
+sample :: DOServer
+sample = DOServer (NameRegionSize "dummy-droplet-name"
                                 (RegionSlug "ams3")
                                 "s-1vcpu-1gb")
-                "dummy-snapshot-name"
+                  "dummy-snapshot-name"
 
 xdgConfPath :: IO FilePath
 xdgConfPath = do
@@ -82,14 +68,14 @@ parserInfo =
           . mconcat
           $ [ subcommand (pure Example)  
                          (NameDesc "example" 
-                                   "Print example configuration to stdout")
-            , subcommand (pure Status)  
+                                   "Print example configuration to stdout"),
+              subcommand (pure Status)  
                          (NameDesc "status" 
-                                   "Show current status of the target server")
-            , subcommand (pure Up)
+                                   "Show current status of the target server"),
+              subcommand (pure Up)
                          (NameDesc "up" 
-                                   "Restores server from snapshot, deletes snapshot")
-            , subcommand (pure Down)
+                                   "Restores server from snapshot, deletes snapshot"),
+              subcommand (pure Down)
                          (NameDesc "down" 
                                    "Shuts down server, makes snapshot, destroys server") ]
      in infoHelpDesc parser "Main options."
@@ -111,19 +97,25 @@ defaultMain = do
             $ sample 
         Status -> 
             do token <- getEnv doTokenVar
-               drops <- droplets token
-               print drops
-               snaps <- snapshots token
-               print snaps
+               conf <- load
+               let Provider _ getState = makeDO token
+               state <- getState conf
+               print ("server is " ++ case state of
+                   ServerUp _   -> "up"
+                   ServerDown _ -> "down")
         Up ->
             do token <- getEnv doTokenVar
                conf <- load
-               moveUp token (_configSnapshotName conf) (_configDropletAttrs conf)
+               let Provider _ getState = makeDO token
+               ServerUp action <- getState conf
+               action
         Down ->
             do token <- getEnv doTokenVar
                conf <- load
-               moveDown token (_configDropletAttrs conf) (_configSnapshotName conf)
+               let Provider _ getState = makeDO token
+               ServerDown action <- getState conf
+               action
   where
-    load :: IO Config
+    load :: IO DOServer
     load = xdgConfPath >>= eitherDecodeFileStrict >>= liftError userError 
 
