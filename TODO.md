@@ -1,0 +1,5 @@
+- Remove the sample, rely on "candidates".
+- Mode the env variable names to the "true main"
+- Construct the list of providers in the "true main"
+    - Currently only DO
+- Add the Hetzler provider. 
