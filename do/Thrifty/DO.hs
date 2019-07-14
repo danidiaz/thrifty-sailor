@@ -128,7 +128,7 @@ makeDO token = Provider servers upOrDown
         (snapshots token)
         (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
     case s' of
-        Right s -> return (ServerUp do
+        Right s -> return (ServerIsDown do
             log "Restoring droplet..."                        
             let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
             d <- createDroplet token _configDropletAttrs snapshotId0
@@ -149,7 +149,7 @@ makeDO token = Provider servers upOrDown
                  (droplets token)
                  (dropletMatches _configDropletAttrs)
              case d' of
-                 Right d -> return (ServerDown do
+                 Right d -> return (ServerIsUp do
                      log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
                      case view dropletStatus d of
                          Active -> do shutdownDroplet token (view dropletId d)

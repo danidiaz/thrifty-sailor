@@ -101,19 +101,19 @@ defaultMain = do
                let Provider _ getState = makeDO token
                state <- getState conf
                print ("server is " ++ case state of
-                   ServerUp _   -> "up"
-                   ServerDown _ -> "down")
+                   ServerIsDown _   -> "down"
+                   ServerIsUp _ -> "up")
         Up ->
             do token <- getEnv doTokenVar
                conf <- load
                let Provider _ getState = makeDO token
-               ServerUp action <- getState conf
+               ServerIsDown action <- getState conf
                action
         Down ->
             do token <- getEnv doTokenVar
                conf <- load
                let Provider _ getState = makeDO token
-               ServerDown action <- getState conf
+               ServerIsUp action <- getState conf
                action
   where
     load :: IO DOServer

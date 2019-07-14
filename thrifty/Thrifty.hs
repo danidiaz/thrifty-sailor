@@ -9,8 +9,8 @@ data Provider server = Provider {
     }
 
 data ServerState m = 
-      ServerUp (m ())
-    | ServerDown (m ())
+      ServerIsDown (m ())
+    | ServerIsUp (m ())
 
 data SomeProvider = 
     forall server. (FromJSON server, ToJSON server) => SomeProvider (Provider server)
