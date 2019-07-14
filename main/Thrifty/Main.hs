@@ -40,9 +40,15 @@ import           Thrifty.DO
                          ,   DOServer(..)
                          )
 
+
+data ProviderPlugin = ProviderPlugin {
+        providerName :: String,
+        tokenVarName :: String,
+        someProvider :: SomeProvider 
+    }
+
 doTokenVar :: String 
 doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 
-
 
 sample :: DOServer
 sample = DOServer (NameRegionSize "dummy-droplet-name"
