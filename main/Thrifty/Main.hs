@@ -57,7 +57,13 @@ xdgConfPath = do
     log ("Looking for configuration file " ++ file ++ ".")
     return file
 
-data Command = Example | Status | Up | Down deriving (Eq,Show)
+data Command = 
+      Example 
+    | Candidates
+    | Status 
+    | Up 
+    | Down 
+    deriving (Eq,Show)
 
 data NameDesc = NameDesc { optionName :: String, optionDesc :: String }
 
@@ -69,6 +75,9 @@ parserInfo =
           $ [ subcommand (pure Example)  
                          (NameDesc "example" 
                                    "Print example configuration to stdout"),
+              subcommand (pure Candidates)  
+                         (NameDesc "candidates" 
+                                   "Show candidates for snapshotification"),
               subcommand (pure Status)  
                          (NameDesc "status" 
                                    "Show current status of the target server"),
@@ -95,6 +104,12 @@ defaultMain = do
               Data.ByteString.Lazy.Char8.putStrLn 
             . Data.Aeson.Encode.Pretty.encodePretty  
             $ sample 
+        Candidates ->
+            do token <- getEnv doTokenVar
+               conf <- load
+               let Provider {candidates} = makeDO token
+               cs <- candidates 
+               print cs
         Status -> 
             do token <- getEnv doTokenVar
                conf <- load
