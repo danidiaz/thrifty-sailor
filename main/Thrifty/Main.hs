@@ -5,8 +5,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE ViewPatterns #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
-module Thrifty.Main (defaultMain) where
+module Thrifty.Main (defaultMain,ProviderPlugin(..)) where
 
 import           Prelude hiding (log)
 
@@ -24,6 +25,7 @@ import           Data.Text (Text)
 import qualified Data.Text             
 import           GHC.Generics 
 import           Data.RBR
+import qualified Data.Map
 
 import           Thrifty.Prelude
 import           Thrifty.JSON
@@ -42,9 +44,8 @@ import           Thrifty.DO
 
 
 data ProviderPlugin = ProviderPlugin {
-        providerName :: String,
         tokenVarName :: String,
-        someProvider :: SomeProvider 
+        someProvider :: String -> SomeProvider 
     }
 
 doTokenVar :: String 
@@ -102,8 +103,8 @@ parserInfo =
     subcommand p nd = 
         O.command (optionName nd) (infoHelpDesc p (optionDesc nd))
 
-defaultMain :: IO ()
-defaultMain = do
+defaultMain :: [(String,ProviderPlugin)] -> IO ()
+defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
         Example -> 
