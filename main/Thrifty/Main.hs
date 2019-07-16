@@ -7,7 +7,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ViewPatterns #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
-module Thrifty.Main (defaultMain,ProviderPlugin(..)) where
+module Thrifty.Main (defaultMain,tokenFromEnvironment) where
 
 import           Prelude hiding (log)
 
@@ -42,11 +42,10 @@ import           Thrifty.DO
                          ,   DOServer(..)
                          )
 
-
-data ProviderPlugin = ProviderPlugin {
-        tokenVarName :: String,
-        someProvider :: String -> SomeProvider 
-    }
+tokenFromEnvironment :: String -> (String -> SomeProvider) -> IO SomeProvider
+tokenFromEnvironment variableName makeProvider =
+  do token <- getEnv variableName
+     return (makeProvider token)
 
 doTokenVar :: String 
 doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 
@@ -103,7 +102,7 @@ parserInfo =
     subcommand p nd = 
         O.command (optionName nd) (infoHelpDesc p (optionDesc nd))
 
-defaultMain :: [(String,ProviderPlugin)] -> IO ()
+defaultMain :: [(String,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
