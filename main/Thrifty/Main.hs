@@ -24,8 +24,10 @@ import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             
 import           GHC.Generics 
-import           Data.RBR
+import           Data.Map(Map)
 import qualified Data.Map
+import qualified Data.ByteString.Lazy
+import           System.IO (stdout)
 
 import           Thrifty.Prelude
 import           Thrifty.JSON
@@ -46,15 +48,6 @@ tokenFromEnvironment :: String -> (String -> SomeProvider) -> IO SomeProvider
 tokenFromEnvironment variableName makeProvider =
   do token <- getEnv variableName
      return (makeProvider token)
-
-doTokenVar :: String 
-doTokenVar = "DIGITALOCEAN_ACCESS_TOKEN" 
-
-sample :: DOServer
-sample = DOServer (NameRegionSize "dummy-droplet-name"
-                                (RegionSlug "ams3")
-                                "s-1vcpu-1gb")
-                  "dummy-snapshot-name"
 
 xdgConfPath :: IO FilePath
 xdgConfPath = do
@@ -78,9 +71,7 @@ parserInfo =
     let parser = 
             O.subparser 
           . mconcat
-          $ [ subcommand (pure Example)  
-                         (NameDesc "example" 
-                                   "Print example configuration to stdout"),
+          $ [ 
               subcommand (pure Candidates)  
                          (NameDesc "candidates" 
                                    "Show candidates for snapshotification"),
@@ -106,37 +97,49 @@ defaultMain :: [(String,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
-        Example -> 
-              Data.ByteString.Lazy.Char8.putStrLn 
-            . Data.Aeson.Encode.Pretty.encodePretty  
-            $ sample 
         Candidates ->
-            do token <- getEnv doTokenVar
-               conf <- load
-               let Provider {candidates} = makeDO token
-               cs <- candidates 
-               print cs
+            do let Just makeProvider = Data.Map.lookup "do" plugins
+               provider <- makeProvider
+               case provider of
+                   SomeProvider (Provider { candidates, serverState }) -> 
+                       do cs <- candidates 
+                          Data.ByteString.Lazy.hPut stdout (encode cs)
         Status -> 
-            do token <- getEnv doTokenVar
-               conf <- load
-               let Provider _ getState = makeDO token
-               state <- getState conf
-               print ("server is " ++ case state of
-                   ServerIsDown _   -> "down"
-                   ServerIsUp _ -> "up")
+            do let Just makeProvider = Data.Map.lookup "do" plugins
+               provider <- makeProvider
+               case provider of
+                   SomeProvider (Provider { candidates, serverState }) -> 
+                     do confs <- load
+                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
+                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                            Data.Aeson.Success conf = fromJSON v
+                        state <- serverState conf
+                        print ("server is " ++ case state of
+                            ServerIsDown _   -> "down"
+                            ServerIsUp _ -> "up")
         Up ->
-            do token <- getEnv doTokenVar
-               conf <- load
-               let Provider _ getState = makeDO token
-               ServerIsDown action <- getState conf
-               action
+            do let Just makeProvider = Data.Map.lookup "do" plugins
+               provider <- makeProvider
+               case provider of
+                   SomeProvider (Provider { candidates, serverState }) -> 
+                     do confs <- load
+                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
+                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                            Data.Aeson.Success conf = fromJSON v
+                        ServerIsDown action <- serverState conf
+                        action
         Down ->
-            do token <- getEnv doTokenVar
-               conf <- load
-               let Provider _ getState = makeDO token
-               ServerIsUp action <- getState conf
-               action
+            do let Just makeProvider = Data.Map.lookup "do" plugins
+               provider <- makeProvider
+               case provider of
+                   SomeProvider (Provider { candidates, serverState }) -> 
+                     do confs <- load
+                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
+                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                            Data.Aeson.Success conf = fromJSON v
+                        ServerIsUp action <- serverState conf
+                        action
   where
-    load :: IO DOServer
-    load = xdgConfPath >>= eitherDecodeFileStrict >>= liftError userError 
+    load :: IO (Map String (Map String Data.Aeson.Value))
+    load = xdgConfPath >>= Data.Aeson.eitherDecodeFileStrict >>= liftError userError 
 
