@@ -4,10 +4,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
-module Thrifty.Main (defaultMain,tokenFromEnvironment) where
+module Thrifty.Main (defaultMain,ProviderName(..),tokenFromEnvironment) where
 
 import           Prelude hiding (log)
 
@@ -15,6 +16,8 @@ import           System.Directory
 import           System.FilePath
 import           System.Environment
 import           Data.Aeson
+import           Data.Foldable (for_)
+import           Data.String (IsString(..))
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty
 import           Options.Applicative
@@ -23,6 +26,7 @@ import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             
+import qualified Data.Text.IO             
 import           GHC.Generics 
 import           Data.Map(Map)
 import qualified Data.Map
@@ -56,9 +60,13 @@ xdgConfPath = do
     log ("Looking for configuration file " ++ file ++ ".")
     return file
 
+newtype ProviderName = ProviderName Text deriving (Eq,Ord,Show,IsString,FromJSONKey)
+
+newtype ServerName = ServerName Text deriving (Eq,Ord,Show,IsString,FromJSONKey)
+
 data Command = 
-      Example 
-    | Candidates
+      Providers
+    | Candidates ProviderName
     | Status 
     | Up 
     | Down 
@@ -72,9 +80,12 @@ parserInfo =
             O.subparser 
           . mconcat
           $ [ 
-              subcommand (pure Candidates)  
+              subcommand (pure Providers)  
+                         (NameDesc "providers" 
+                                   "Show available providers"),
+              subcommand (Candidates <$> providerArgument)
                          (NameDesc "candidates" 
-                                   "Show candidates for snapshotification"),
+                                   "Show available candidates for snapshotification"),
               subcommand (pure Status)  
                          (NameDesc "status" 
                                    "Show current status of the target server"),
@@ -93,19 +104,24 @@ parserInfo =
     subcommand p nd = 
         O.command (optionName nd) (infoHelpDesc p (optionDesc nd))
 
-defaultMain :: [(String,IO SomeProvider)] -> IO ()
+    providerArgument = strArgument (metavar "PROVIDER" <> help "Name of the provider")
+
+defaultMain :: [(ProviderName,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
-        Candidates ->
-            do let Just makeProvider = Data.Map.lookup "do" plugins
+        Providers -> 
+            do let providerNames = Data.Map.keys plugins
+               for_ providerNames \(ProviderName name) -> Data.Text.IO.putStrLn name
+        Candidates providerName -> 
+            do let Just makeProvider = Data.Map.lookup providerName plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
                        do cs <- candidates 
                           Data.ByteString.Lazy.hPut stdout (encode cs)
         Status -> 
-            do let Just makeProvider = Data.Map.lookup "do" plugins
+            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
@@ -118,7 +134,7 @@ defaultMain (Data.Map.fromList -> plugins) = do
                             ServerIsDown _   -> "down"
                             ServerIsUp _ -> "up")
         Up ->
-            do let Just makeProvider = Data.Map.lookup "do" plugins
+            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
@@ -129,7 +145,7 @@ defaultMain (Data.Map.fromList -> plugins) = do
                         ServerIsDown action <- serverState conf
                         action
         Down ->
-            do let Just makeProvider = Data.Map.lookup "do" plugins
+            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
@@ -140,6 +156,6 @@ defaultMain (Data.Map.fromList -> plugins) = do
                         ServerIsUp action <- serverState conf
                         action
   where
-    load :: IO (Map String (Map String Data.Aeson.Value))
+    load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
     load = xdgConfPath >>= Data.Aeson.eitherDecodeFileStrict >>= liftError userError 
 
