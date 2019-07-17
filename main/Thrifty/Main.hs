@@ -40,13 +40,6 @@ tokenFromEnvironment variableName makeProvider =
   do token <- getEnv variableName
      return (makeProvider token)
 
-xdgConfPath :: IO FilePath
-xdgConfPath = do
-    xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
-    let file = xdg </> "config.json" 
-    log ("Looking for configuration file " ++ file ++ ".")
-    return file
-
 newtype ProviderName = ProviderName Text deriving (Eq,Ord,Show,IsString,FromJSONKey)
 
 newtype ServerName = ServerName Text deriving (Eq,Ord,Show,IsString,FromJSONKey)
@@ -144,7 +137,17 @@ defaultMain (Data.Map.fromList -> plugins) = do
                             Data.Aeson.Success conf = fromJSON v
                         ServerIsUp action <- serverState conf
                         action
+
+load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
+load = 
+  do path <- xdgConfPath
+     parseResult <- eitherDecodeFileStrict path
+     liftError userError parseResult
   where
-    load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
-    load = xdgConfPath >>= Data.Aeson.eitherDecodeFileStrict >>= liftError userError 
+    xdgConfPath :: IO FilePath
+    xdgConfPath = do
+        xdg <- getXdgDirectory XdgConfig "thrifty-sailor" 
+        let file = xdg </> "config.json" 
+        log ("Looking for configuration file " ++ file ++ ".")
+        return file
 
