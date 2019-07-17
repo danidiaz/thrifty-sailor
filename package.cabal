@@ -12,6 +12,7 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=2
 
+-- The providers from different internal libraries are assembled here.
 executable thrifty
     main-is:             Main.hs
     build-depends:       
@@ -19,7 +20,8 @@ executable thrifty
         thrifty-main,
         thrifty,
         t-do,
-        t-network
+        -- Concrete networking implementation that satisfies the hsig 
+        t-network 
     default-language:    Haskell2010
     -- ghc-options: -fno-warn-partial-type-signatures
 
@@ -27,6 +29,9 @@ library thrifty-main
   exposed-modules:     
         Thrifty.Main
   build-depends:
+        -- This library doesn't know about:
+        -- - Concrete networking / auth implementation.
+        -- - Concrete provider implementations.
         base                 >= 4.10 && <5,
         bytestring           >= 0.10 && <0.11,
         text                 >= 1.2 && <1.3,
@@ -43,6 +48,7 @@ library thrifty-main
   hs-source-dirs:      main
   default-language:    Haskell2010
 
+-- The basic interface that a provider internal library must fill.
 library
   exposed-modules:     
         Thrifty
@@ -53,10 +59,13 @@ library
   hs-source-dirs:      thrifty
   default-language:    Haskell2010
 
+-- Provider definition for Digital Ocean
 library t-do
   exposed-modules:     
         Thrifty.DO
   build-depends:
+        -- This library doesn't know about:
+        -- - Concrete networking / auth implementation.
         base             >= 4.10 && <5,
         text             >= 1.2 && <1.3,
         aeson            >= 1.3,

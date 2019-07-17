@@ -15,7 +15,6 @@
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Thrifty.DO (
         Token
-
     ,   droplets
 
     ,   Droplet
@@ -76,6 +75,7 @@ import           Control.Monad.Trans.Except
 import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
+import           Data.String (fromString)
 import           Control.Exception
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
@@ -88,9 +88,8 @@ import           Thrifty
 import           Thrifty.Prelude
 import           Thrifty.Delays
 import           Thrifty.JSON
-import           Thrifty.Network (doGET,doPOST,doDELETE,Token)
+import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
 
---
 data DOServer = DOServer 
             { 
                 _configDropletAttrs :: NameRegionSize
@@ -397,11 +396,11 @@ instance FromJSON WrappedAction where
         WrappedAction <$> v .: "action"
 
 droplets :: MonadIO m => Token -> m [Droplet]
-droplets token = getDroplets <$> liftIO (doGET "/v2/droplets" token)
+droplets token = getDroplets <$> liftIO (doGET' "/v2/droplets" token)
 
 shutdownDroplet :: Token -> DropletId -> IO Action
 shutdownDroplet token dropletId0 =
-    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
+    do WrappedAction a <- doPOST' (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
                                  [("type",["shutdown"])]
                                  token
        log ("Initiated shutdown action: " ++ show a)
@@ -413,7 +412,7 @@ type SnapshotName = Text
 
 createSnapshot :: Token -> SnapshotName -> DropletId -> IO Action
 createSnapshot token name dropletId0 = 
-    do WrappedAction a <- doPOST ("/v2/droplets/"++ show dropletId0 ++"/actions")
+    do WrappedAction a <- doPOST' (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
                                  [("type",["snapshot"]),("name",[name])]
                                  token
        log ("Initiated snapshot action: " ++ show a)
@@ -423,12 +422,12 @@ createSnapshot token name dropletId0 =
 
 deleteDroplet :: Token -> DropletId -> IO ()
 deleteDroplet token dropletId0 = 
-    do doDELETE ("/v2/droplets/" ++show dropletId0) token
+    do doDELETE' (fromString ("/v2/droplets/" ++show dropletId0)) token
        return ()
 
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
-    do doDELETE ("/v2/snapshots/" ++Data.Text.unpack snapshotId0) token
+    do doDELETE' (fromString ("/v2/snapshots/" ++Data.Text.unpack snapshotId0)) token
        return ()
 
 data NameRegionSize = NameRegionSize
@@ -466,7 +465,7 @@ type ImageId = Integer
 
 createDroplet :: Token -> NameRegionSize -> ImageId -> IO Droplet
 createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId = 
-    do WrappedDroplet d <- doPOST ("/v2/droplets/") 
+    do WrappedDroplet d <- doPOST' ("/v2/droplets/") 
                                   [("name",[_name])
                                   ,("region",[getRegionSlug _regionSlug])
                                   ,("size",[_sizeSlug])
@@ -498,16 +497,16 @@ complete errCheck doneCheck action =
 
 action :: Token -> ActionId -> IO Action
 action token actionId0 = 
-    do WrappedAction a <- doGET ("/v2/actions/" ++ show actionId0) token
+    do WrappedAction a <- doGET' (fromString ("/v2/actions/" ++ show actionId0)) token
        return a
 
 droplet :: MonadIO m => Token -> DropletId -> m Droplet
 droplet token dropletId0 = 
-    do WrappedDroplet d <- liftIO (doGET ("/v2/droplets/" ++ show dropletId0) token)
+    do WrappedDroplet d <- liftIO (doGET' (fromString ("/v2/droplets/" ++ show dropletId0)) token)
        return d
 
 snapshots :: MonadIO m => Token -> m [Snapshot]
-snapshots token = getSnapshots <$> liftIO (doGET "/v2/snapshots/?resource_type=droplet" token)
+snapshots token = getSnapshots <$> liftIO (doGET' "/v2/snapshots/?resource_type=droplet" token)
 
 
 doable :: (Show target, Show source,MonadError IOException m,MonadIO m)
@@ -533,3 +532,16 @@ snapshotMatches :: SnapshotName -> RegionSlug -> Snapshot -> Bool
 snapshotMatches snapshotName0 regionSlug0 s =
        snapshotName0 == view snapshotName s
     && any (== regionSlug0) (view snapshotRegionSlugs s) 
+
+
+baseURL :: AbsoluteURL
+baseURL = fromString "https://api.digitalocean.com"
+
+doGET' :: FromJSON a => RelativeURL -> Token -> IO a 
+doGET' = doGET . extendAbsoluteURL baseURL
+
+doPOST' :: FromJSON a => RelativeURL -> [(Text,[Text])] -> Token -> IO a 
+doPOST' = doPOST . extendAbsoluteURL baseURL 
+
+doDELETE' :: RelativeURL -> Token -> IO ()
+doDELETE' = doDELETE . extendAbsoluteURL baseURL

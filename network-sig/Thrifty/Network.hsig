@@ -1,12 +1,24 @@
 signature Thrifty.Network where
 
 import           Data.Aeson (FromJSON)
+import           Data.Monoid (Monoid)
 import           Data.Text(Text)
+import           Data.String(IsString)
 
 data Token
+instance IsString Token
 
-doGET :: FromJSON a => String -> Token -> IO a 
+data RelativeURL 
+instance IsString RelativeURL
+instance Monoid RelativeURL
 
-doPOST :: FromJSON a => String -> [(Text,[Text])] -> Token -> IO a 
+data AbsoluteURL
+instance IsString AbsoluteURL
 
-doDELETE :: String -> Token -> IO ()
+extendAbsoluteURL :: AbsoluteURL -> RelativeURL -> AbsoluteURL
+
+doGET :: FromJSON a => AbsoluteURL -> Token -> IO a 
+
+doPOST :: FromJSON a => AbsoluteURL -> [(Text,[Text])] -> Token -> IO a 
+
+doDELETE :: AbsoluteURL -> Token -> IO ()
