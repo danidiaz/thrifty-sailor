@@ -19,9 +19,7 @@ import           Data.Aeson
 import           Data.Foldable (for_)
 import           Data.String (IsString(..))
 import           Control.Monad.Except
-import qualified Data.Aeson.Encode.Pretty
 import           Options.Applicative
-import           Control.Lens 
 import qualified Options.Applicative as O
 import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
@@ -36,17 +34,6 @@ import           System.IO (stdout)
 import           Thrifty.Prelude
 import           Thrifty.JSON
 import           Thrifty
-import           Thrifty.DO 
-                         (
-                             droplets
-                         ,   snapshots
-                         ,   moveUp
-                         ,   moveDown
-                         ,   NameRegionSize(..)
-                         ,   RegionSlug(..)
-                         ,   makeDO
-                         ,   DOServer(..)
-                         )
 
 tokenFromEnvironment :: String -> (String -> SomeProvider) -> IO SomeProvider
 tokenFromEnvironment variableName makeProvider =
@@ -67,9 +54,9 @@ newtype ServerName = ServerName Text deriving (Eq,Ord,Show,IsString,FromJSONKey)
 data Command = 
       Providers
     | Candidates ProviderName
-    | Status 
-    | Up 
-    | Down 
+    | Status ProviderName ServerName
+    | Up ProviderName ServerName
+    | Down ProviderName ServerName
     deriving (Eq,Show)
 
 data NameDesc = NameDesc { optionName :: String, optionDesc :: String }
@@ -86,13 +73,13 @@ parserInfo =
               subcommand (Candidates <$> providerArgument)
                          (NameDesc "candidates" 
                                    "Show available candidates for snapshotification"),
-              subcommand (pure Status)  
+              subcommand (Status <$> providerArgument <*> serverArgument)  
                          (NameDesc "status" 
                                    "Show current status of the target server"),
-              subcommand (pure Up)
+              subcommand (Up <$> providerArgument <*> serverArgument)
                          (NameDesc "up" 
                                    "Restores server from snapshot, deletes snapshot"),
-              subcommand (pure Down)
+              subcommand (Down <$> providerArgument <*> serverArgument)
                          (NameDesc "down" 
                                    "Shuts down server, makes snapshot, destroys server") ]
      in infoHelpDesc parser "Main options."
@@ -105,6 +92,8 @@ parserInfo =
         O.command (optionName nd) (infoHelpDesc p (optionDesc nd))
 
     providerArgument = strArgument (metavar "PROVIDER" <> help "Name of the provider")
+
+    serverArgument = strArgument (metavar "SERVER" <> help "Name of the server")
 
 defaultMain :: [(ProviderName,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
@@ -120,38 +109,38 @@ defaultMain (Data.Map.fromList -> plugins) = do
                    SomeProvider (Provider { candidates, serverState }) -> 
                        do cs <- candidates 
                           Data.ByteString.Lazy.hPut stdout (encode cs)
-        Status -> 
-            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
+        Status providerName serverName -> 
+            do let Just makeProvider = Data.Map.lookup providerName plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
                      do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
-                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
+                            Just v = Data.Map.lookup serverName selectedProviderConfs
                             Data.Aeson.Success conf = fromJSON v
                         state <- serverState conf
                         print ("server is " ++ case state of
                             ServerIsDown _   -> "down"
                             ServerIsUp _ -> "up")
-        Up ->
-            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
+        Up providerName serverName ->
+            do let Just makeProvider = Data.Map.lookup providerName plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
                      do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
-                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
+                            Just v = Data.Map.lookup serverName selectedProviderConfs
                             Data.Aeson.Success conf = fromJSON v
                         ServerIsDown action <- serverState conf
                         action
-        Down ->
-            do let Just makeProvider = Data.Map.lookup (ProviderName "do") plugins
+        Down providerName serverName ->
+            do let Just makeProvider = Data.Map.lookup providerName plugins
                provider <- makeProvider
                case provider of
                    SomeProvider (Provider { candidates, serverState }) -> 
                      do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup "do" confs
-                            Just v = Data.Map.lookup "foo" selectedProviderConfs
+                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
+                            Just v = Data.Map.lookup serverName selectedProviderConfs
                             Data.Aeson.Success conf = fromJSON v
                         ServerIsUp action <- serverState conf
                         action

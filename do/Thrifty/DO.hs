@@ -60,8 +60,6 @@ module Thrifty.DO (
 
     ,   deleteSnapshot
     ,   doable
-    ,   moveUp
-    ,   moveDown
     ,   makeDO
     ,   DOServer(..)
     ) where
@@ -535,41 +533,3 @@ snapshotMatches :: SnapshotName -> RegionSlug -> Snapshot -> Bool
 snapshotMatches snapshotName0 regionSlug0 s =
        snapshotName0 == view snapshotName s
     && any (== regionSlug0) (view snapshotRegionSlugs s) 
-
-moveDown :: Token -> NameRegionSize -> SnapshotName -> IO ()
-moveDown token attrs snapshotName0 =
-    do log "Target is snapshot, source is droplet."
-       d <- doable (snapshots token)
-                   (snapshotMatches snapshotName0 (view regionSlug attrs))
-                   (droplets token)
-                   (dropletMatches attrs)
-       log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
-       case view dropletStatus d of
-           Active -> do shutdownDroplet token (view dropletId d)
-                        pure ()
-           Off ->    pure ()
-           _ ->      throwError (userError ("Droplet not in valid status for snapshot."))
-       log "Taking snapshot..." 
-       createSnapshot token snapshotName0 (view dropletId d) 
-       log "Deleting droplet..." 
-       deleteDroplet token (view dropletId d)
-       log "Done."
-
-moveUp :: Token -> SnapshotName -> NameRegionSize -> IO ()
-moveUp token snapshotName0 attrs  =
-    do log "Target is droplet, source is snapshot."
-       s <- doable (droplets token)
-                   (dropletMatches attrs)
-                   (snapshots token)
-                   (snapshotMatches snapshotName0 (view regionSlug attrs))
-       log "Restoring droplet..."                        
-       let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
-       d <- createDroplet token attrs snapshotId0
-       log "Deleting snapshot..." 
-       deleteSnapshot token (view snapshotId s)
-       log "Echoing droplet on stdout..." 
-       case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
-            ip : [] -> putStrLn (Data.Text.unpack ip)
-            [] -> log "No public ip on droplet!"
-            _  -> log "More than one public ip on droplet!"
-       log "Done."
