@@ -55,6 +55,7 @@ library
   build-depends:
         base             >= 4.10 && <5,
         aeson            >= 1.3,
+        text             >= 1.2 && <1.3,
         prelude
   hs-source-dirs:      thrifty
   default-language:    Haskell2010

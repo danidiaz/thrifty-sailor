@@ -75,6 +75,7 @@ import           Control.Monad.Trans.Except
 import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
+import           Data.List.NonEmpty (NonEmpty((:|)))
 import           Data.String (fromString)
 import           Control.Exception
 import           Data.Generics.Product.Fields (field')
@@ -133,10 +134,13 @@ makeDO token = Provider servers upOrDown
             deleteSnapshot token (view snapshotId s)
             log "Echoing droplet on stdout..." 
             case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
-                 ip : [] -> putStrLn (Data.Text.unpack ip)
-                 [] -> log "No public ip on droplet!"
-                 _  -> log "More than one public ip on droplet!"
-            log "Done.")
+                 [] -> 
+                    throwError (userError "No public ip on droplet!")
+                 ip : [] -> 
+                    return (IPAddress ip :| [])
+                 ip : ips  -> 
+                    do log "More than one public ip on droplet!"
+                       return (IPAddress ip :| (IPAddress <$> ips))) 
         Left _ -> 
           do log "Target is snapshot, source is droplet."
              d' <- runExceptT $ 

@@ -16,6 +16,7 @@ import           System.Directory
 import           System.FilePath
 import           System.Environment
 import           Data.Aeson
+import           Data.Coerce
 import           Data.Foldable (for_)
 import           Data.String (IsString(..))
 import           Control.Monad.Except
@@ -25,6 +26,7 @@ import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             
 import qualified Data.Text.IO             
+import           Data.List.NonEmpty (NonEmpty((:|)))
 import           GHC.Generics 
 import           Data.Map(Map)
 import qualified Data.Map
@@ -126,6 +128,8 @@ defaultMain (Data.Map.fromList -> plugins) = do
                             Data.Aeson.Success conf = fromJSON v
                         ServerIsDown action <- serverState conf
                         action
+                        ips <- action
+                        for_ ips \(IPAddress ip) -> Data.Text.IO.putStrLn ip
         Down providerName serverName ->
             do let Just makeProvider = Data.Map.lookup providerName plugins
                provider <- makeProvider
