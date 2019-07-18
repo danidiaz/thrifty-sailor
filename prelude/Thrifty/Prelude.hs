@@ -1,4 +1,4 @@
-{-# language RankNTypes, MultiParamTypeClasses, TypeFamilies, FlexibleInstances #-}
+{-# LANGUAGE RankNTypes, MultiParamTypeClasses, TypeFamilies, FlexibleInstances, FlexibleContexts #-}
 module Thrifty.Prelude (
         LiftError (..)
     ,   errorShow
@@ -6,15 +6,17 @@ module Thrifty.Prelude (
     ,   uniqueness
     ,   absence
     ,   log
+    ,   doable
     ) where
 
 import           Prelude hiding (log)
 import           Control.Monad.Except 
 import           Data.Bifunctor
 import           Data.Foldable
-import           Data.List.NonEmpty
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Control.Monad.IO.Class
 import           System.IO
+import           Control.Exception
 import           Data.Kind
 
 class LiftError (k :: Type -> Type) (e :: Type) where
@@ -50,3 +52,19 @@ absence container = case Data.Foldable.toList container of
 -- | Emit message on stderr
 log :: MonadIO m => String -> m ()
 log = liftIO . hPutStrLn stderr
+
+doable :: (Show target,Show source,MonadError IOException m,MonadIO m)
+       => m [target]
+       -> (target -> Bool)
+       -> m [source]
+       -> (source -> Bool)
+       -> m source
+doable listTargets checkTarget listSources checkSource =
+    do log "Checking that target doesn't already exist..."
+       ts <- listTargets
+       liftError errorShow (absence (filter checkTarget ts))
+       log "Checking that the source exists..."
+       ss <- listSources
+       s <- liftError errorShow (uniqueness (filter checkSource ss))
+       pure s
+

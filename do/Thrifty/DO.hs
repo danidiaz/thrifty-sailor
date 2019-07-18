@@ -1,3 +1,4 @@
+-- | https://developers.digitalocean.com/documentation/v2/
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -59,8 +60,8 @@ module Thrifty.DO (
 
     ,   deleteSnapshot
     ,   doable
-    ,   makeDO
     ,   DOServer(..)
+    ,   makeDO
     ) where
 
 import           Prelude hiding (log)
@@ -520,22 +521,6 @@ droplet token dropletId0 =
 snapshots :: MonadIO m => Token -> m [Snapshot]
 snapshots token = getSnapshots <$> liftIO (doGET' "/v2/snapshots/?resource_type=droplet" token)
 
-
-doable :: (Show target, Show source,MonadError IOException m,MonadIO m)
-       => m [target]
-       -> (target -> Bool)
-       -> m [source]
-       -> (source -> Bool)
-       -> m source
-doable listTargets checkTarget listSources checkSource =
-    do log "Checking that target doesn't already exist..."
-       ts <- listTargets
-       liftError errorShow (absence (filter checkTarget ts))
-       log "Checking that the source exists..."
-       ss <- listSources
-       s <- liftError errorShow (uniqueness (filter checkSource ss))
-       pure s
-
 dropletMatches :: NameRegionSize -> Droplet -> Bool 
 dropletMatches attrs d =
     attrs == view dropletAttrs d   
@@ -544,7 +529,6 @@ snapshotMatches :: SnapshotName -> RegionSlug -> Snapshot -> Bool
 snapshotMatches snapshotName0 regionSlug0 s =
        snapshotName0 == view snapshotName s
     && any (== regionSlug0) (view snapshotRegionSlugs s) 
-
 
 baseURL :: AbsoluteURL
 baseURL = fromString "https://api.digitalocean.com"

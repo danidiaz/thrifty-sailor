@@ -20,6 +20,7 @@ executable thrifty
         thrifty-main,
         thrifty,
         t-do,
+        hetz,
         -- Concrete networking implementation that satisfies the hsig 
         t-network 
     default-language:    Haskell2010
@@ -60,6 +61,30 @@ library
   hs-source-dirs:      thrifty
   default-language:    Haskell2010
 
+-- Provider definition for Hetzner
+library hetz
+  exposed-modules:     
+        Thrifty.Hetzner
+  build-depends:
+        -- This library doesn't know about:
+        -- - Concrete networking / auth implementation.
+        base             >= 4.10 && <5,
+        text             >= 1.2 && <1.3,
+        aeson            >= 1.3,
+        red-black-record >= 2.0.2.2,
+        mtl              >= 2.2.2,
+        transformers     >= 0.5,
+        lens             >= 4.4 && <5,
+        generic-lens     >= 1.0.0.0,
+        t-network-sig,
+        delays,
+        thrifty-json,
+        thrifty,
+        prelude
+  hs-source-dirs:      hetzner
+  default-language:    Haskell2010
+  
+
 -- Provider definition for Digital Ocean
 library t-do
   exposed-modules:     
@@ -80,7 +105,6 @@ library t-do
         thrifty-json,
         thrifty,
         prelude
-
   hs-source-dirs:      do
   default-language:    Haskell2010
   
