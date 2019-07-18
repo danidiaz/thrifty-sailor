@@ -13,7 +13,7 @@
 module Thrifty.JSON (
         Aliases
     ,   alias
-    ,   recordFromJSON
+    ,   nominalRecordFromJSON
     ,   recordToJSON
     ) where
 
@@ -34,7 +34,7 @@ type Aliases t = Record (K String) t
 alias :: forall k v t. Insertable k v t => String -> Aliases t -> Aliases (Insert k v t)
 alias = insert @k @v . K
 
-recordFromJSON 
+nominalRecordFromJSON 
     :: forall r c flat name m package stuff
                       . (NamedDataType r,
                          FromRecord r, 
@@ -44,7 +44,7 @@ recordFromJSON
     => Aliases c
     -> Data.Aeson.Value 
     -> Data.Aeson.Types.Parser r
-recordFromJSON aliases = 
+nominalRecordFromJSON aliases = 
     let giveFieldName (K alias) (Compose f) = Compose (\o -> Data.Aeson.Types.explicitParseField f o (fromString alias))
         parsers = cpure_NP (Proxy @FromJSON) (Compose parseJSON)
         Compose parser = fromNP <$> sequence_NP (liftA2_NP giveFieldName (toNP aliases) parsers)

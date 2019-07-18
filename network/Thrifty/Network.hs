@@ -29,12 +29,12 @@ doGET url token =
    do r <- getWith (authorized token defaults) url
       view responseBody <$> asJSON r
 
-doPOST :: FromJSON a => AbsoluteURL -> [(Text,[Text])] -> Token -> IO a 
-doPOST url params token =  
+doPOST :: (ToJSON body, FromJSON result) => AbsoluteURL -> [(Text,[Text])] -> body -> Token -> IO result
+doPOST url params body token =  
    do let options = alaf Endo foldMap (\(k,v) -> set (param k) v) params
                   . authorized token 
                   $ defaults
-      r <- postWith options url (toJSON ())
+      r <- postWith options url (toJSON body)
       view responseBody <$> asJSON r
 
 doDELETE :: AbsoluteURL -> Token -> IO ()

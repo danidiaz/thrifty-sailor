@@ -104,7 +104,7 @@ doServerAliases =
    $ unit
 
 instance FromJSON DOServer where
-    parseJSON = recordFromJSON doServerAliases
+    parseJSON = nominalRecordFromJSON doServerAliases
 
 instance ToJSON DOServer where
     toJSON = recordToJSON doServerAliases
@@ -404,9 +404,11 @@ droplets token = getDroplets <$> liftIO (doGET' "/v2/droplets" token)
 
 shutdownDroplet :: Token -> DropletId -> IO Action
 shutdownDroplet token dropletId0 =
-    do WrappedAction a <- doPOST' (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
-                                 [("type",["shutdown"])]
-                                 token
+    do WrappedAction a <- doPOST' 
+                          (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
+                          []
+                          (object ["type" .= String "shutdown"])
+                          token
        log ("Initiated shutdown action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
@@ -416,9 +418,11 @@ type SnapshotName = Text
 
 createSnapshot :: Token -> SnapshotName -> DropletId -> IO Action
 createSnapshot token name dropletId0 = 
-    do WrappedAction a <- doPOST' (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
-                                 [("type",["snapshot"]),("name",[name])]
-                                 token
+    do WrappedAction a <- doPOST' 
+                          (fromString ("/v2/droplets/"++ show dropletId0 ++"/actions"))
+                          []
+                          (object ["type" .= String "snapshot","name" .= name])
+                          token
        log ("Initiated snapshot action: " ++ show a)
        complete (actionStatus._ActionErrored)
                 (actionStatus._ActionCompleted)
@@ -450,7 +454,7 @@ nameRegionSizeAliases =
 
 -- | Used only in Config object.
 instance FromJSON NameRegionSize where
-    parseJSON = recordFromJSON nameRegionSizeAliases
+    parseJSON = nominalRecordFromJSON nameRegionSizeAliases
 
 -- | Used only in Config object.
 instance ToJSON NameRegionSize where
@@ -469,13 +473,17 @@ type ImageId = Integer
 
 createDroplet :: Token -> NameRegionSize -> ImageId -> IO Droplet
 createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId = 
-    do WrappedDroplet d <- doPOST' ("/v2/droplets/") 
-                                  [("name",[_name])
-                                  ,("region",[getRegionSlug _regionSlug])
-                                  ,("size",[_sizeSlug])
-                                  ,("image",[Data.Text.pack . show $ imageId])
-                                  ]
-                                  token
+    do WrappedDroplet d <- doPOST' 
+                           ("/v2/droplets/") 
+                           []
+                           (object 
+                             [
+                                "name" .= _name,
+                                "region" .= getRegionSlug _regionSlug,
+                                "size" .= _sizeSlug,
+                                "image" .= imageId
+                             ])
+                           token
        log ("Initiated droplet creation: " ++ show d)
        complete (dropletStatus._Void.united)
                 (dropletStatus._Active)
@@ -544,7 +552,7 @@ baseURL = fromString "https://api.digitalocean.com"
 doGET' :: FromJSON a => RelativeURL -> Token -> IO a 
 doGET' = doGET . extendAbsoluteURL baseURL
 
-doPOST' :: FromJSON a => RelativeURL -> [(Text,[Text])] -> Token -> IO a 
+doPOST' :: (ToJSON body, FromJSON result) => RelativeURL -> [(Text,[Text])] -> body -> Token -> IO result
 doPOST' = doPOST . extendAbsoluteURL baseURL 
 
 doDELETE' :: RelativeURL -> Token -> IO ()

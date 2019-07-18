@@ -1,6 +1,6 @@
 signature Thrifty.Network where
 
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (ToJSON,FromJSON)
 import           Data.Monoid (Monoid)
 import           Data.Text(Text)
 import           Data.String(IsString)
@@ -19,6 +19,6 @@ extendAbsoluteURL :: AbsoluteURL -> RelativeURL -> AbsoluteURL
 
 doGET :: FromJSON a => AbsoluteURL -> Token -> IO a 
 
-doPOST :: FromJSON a => AbsoluteURL -> [(Text,[Text])] -> Token -> IO a 
+doPOST :: (ToJSON body, FromJSON result) => AbsoluteURL -> [(Text,[Text])] -> body -> Token -> IO result
 
 doDELETE :: AbsoluteURL -> Token -> IO ()

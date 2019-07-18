@@ -127,7 +127,6 @@ defaultMain (Data.Map.fromList -> plugins) = do
                             Just v = Data.Map.lookup serverName selectedProviderConfs
                             Data.Aeson.Success conf = fromJSON v
                         ServerIsDown action <- serverState conf
-                        action
                         ips <- action
                         for_ ips \(IPAddress ip) -> Data.Text.IO.putStrLn ip
         Down providerName serverName ->
