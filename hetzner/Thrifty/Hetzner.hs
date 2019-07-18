@@ -1,4 +1,5 @@
 -- | https://docs.hetzner.cloud/
+--   https://github.com/hetznercloud/cli
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
