@@ -109,11 +109,11 @@ defaultMain (Data.Map.fromList -> plugins) = do
                    ServerIsUp _ -> "up")
         Up providerName serverName ->
             withSelectedServerState providerName serverName \(ServerIsDown action) -> 
-              do ips <- action
+              do ips <- startupServer action
                  for_ ips \(IPAddress ip) -> Data.Text.IO.putStrLn ip
         Down providerName serverName ->
             withSelectedServerState providerName serverName \(ServerIsUp action) ->
-              do action
+              do shutdownServer action
   where
     withSelectedProvider :: forall r . ProviderName -> (forall server. (FromJSON server, ToJSON server) => Provider server -> IO r) -> IO r
     withSelectedProvider providerName callback =
@@ -121,7 +121,7 @@ defaultMain (Data.Map.fromList -> plugins) = do
          provider <- makeProvider
          withSomeProvider provider callback
 
-    withSelectedServerState :: forall r . ProviderName -> ServerName -> (ServerState IO -> IO r) -> IO r
+    withSelectedServerState :: forall r . ProviderName -> ServerName -> (ServerState -> IO r) -> IO r
     withSelectedServerState providerName serverName callback =
         withSelectedProvider providerName \provider ->  
           do servers <- load

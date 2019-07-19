@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
-module Thrifty (Provider(..),ServerState(..),SomeProvider(..),IPAddress(..),withSomeProvider) where
+module Thrifty (Provider(..),ServerState(..),SomeProvider(..),IPAddress(..),withSomeProvider,StartupAction(..),ShutdownAction(..)) where
 
 import Data.Aeson
 import Data.Text
@@ -8,12 +8,16 @@ import Data.List.NonEmpty
 
 data Provider server = Provider {
         candidates :: IO [server],
-        serverState :: server -> IO (ServerState IO)
+        serverState :: server -> IO ServerState
     }
 
-data ServerState m = 
-      ServerIsDown (m (NonEmpty IPAddress))
-    | ServerIsUp (m ())
+data ServerState = 
+      ServerIsDown (StartupAction (NonEmpty IPAddress))
+    | ServerIsUp ShutdownAction
+
+newtype StartupAction a = StartupAction { startupServer :: IO a }
+
+newtype ShutdownAction = ShutdownAction { shutdownServer :: IO () }
 
 newtype IPAddress = IPAddress { getIPAddress :: Text } deriving (Show,Eq)
 

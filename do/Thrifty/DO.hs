@@ -128,7 +128,7 @@ makeDO token = Provider servers upOrDown
         (snapshots token)
         (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
     case s' of
-        Right s -> return (ServerIsDown do
+        Right s -> return (ServerIsDown (Thrifty.StartupAction do
             log "Restoring droplet..."                        
             let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
             d <- createDroplet token _configDropletAttrs snapshotId0
@@ -142,7 +142,7 @@ makeDO token = Provider servers upOrDown
                     return (IPAddress ip :| [])
                  ip : ips  -> 
                     do log "More than one public ip on droplet!"
-                       return (IPAddress ip :| (IPAddress <$> ips))) 
+                       return (IPAddress ip :| (IPAddress <$> ips))))
         Left _ -> 
           do log "Target is snapshot, source is droplet."
              d' <- runExceptT $ 
@@ -152,7 +152,7 @@ makeDO token = Provider servers upOrDown
                  (droplets token)
                  (dropletMatches _configDropletAttrs)
              case d' of
-                 Right d -> return (ServerIsUp do
+                 Right d -> return (ServerIsUp (Thrifty.ShutdownAction do
                      log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
                      case view dropletStatus d of
                          Active -> do shutdownDroplet token (view dropletId d)
@@ -163,7 +163,7 @@ makeDO token = Provider servers upOrDown
                      createSnapshot token _configSnapshotName (view dropletId d) 
                      log "Deleting droplet..." 
                      deleteDroplet token (view dropletId d)
-                     log "Done.")
+                     log "Done."))
                  Left _ -> throwIO (userError "server in strange state") 
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
@@ -352,7 +352,7 @@ data ActionType = RebootAction
 instance FromJSON ActionType where
     parseJSON = withText "ActionType" $ \t -> 
         case t of
-            "shutdown" -> pure ShutdownAction
+            "shutdown" -> pure Thrifty.DO.ShutdownAction
             "reboot" -> pure RebootAction
             "power-off" -> pure PowerOffAction
             "snapshot" -> pure SnapshotAction
