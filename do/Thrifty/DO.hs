@@ -199,7 +199,6 @@ dropletAttrs :: Lens' Droplet NameRegionSize
 dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
---dropletStatus f s = _status s & f <&> \a -> s { _status = a }
 dropletStatus = field' @"_status"
 
 networks :: Lens' Droplet [IF]
