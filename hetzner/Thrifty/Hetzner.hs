@@ -141,6 +141,24 @@ address :: Lens' IF Text
 address = field' @"_address"
 
 --
+complete 
+    :: Show a 
+    => (Fold a ()) -- ^ error check
+    -> (Fold a ()) -- ^ completion check
+    -> IO a 
+    -> IO a
+complete errCheck doneCheck = 
+    Thrifty.Delays.complete
+    (RetryPlan 
+       { 
+           giveUpAfter = seconds 360,
+           initialDelay = seconds 2,
+           increaseFactor = factor 1.5,
+           maximumDelay = seconds 15 
+       })
+    (has errCheck)
+    (has doneCheck)
+--
 
 baseURL :: AbsoluteURL
 baseURL = fromString "https://api.hetzner.cloud"
