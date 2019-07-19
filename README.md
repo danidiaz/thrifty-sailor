@@ -10,20 +10,35 @@ droplet from a snapshot and destroy the snapshot afterwards.
 
 For saving money, when you don't need to have a droplet active all the time.
 
-At the time of writing this, the cheapest droplet—with 25 GB disk space—costs
-$5/mo. It will be billed even when it is off.
+In many cloud providers, snapshots are cheaper than running—or even
+stopped—servers. So, if you have a pet development server, it's cheaper to keep
+it as a snapshot while you aren't using it.
+
+But the cycle of snapshotting, deleting the server, restoring the server and
+deleting the snapshot is tedious to perform through the web interface.
+
+### DO
+
+At the time of writing this, the cheapest droplet—with 1GB RAM, 25 GB
+disk—costs $5/mo. It will be billed even when it is off.
 
 Meanwhile, snapshot cost is based on space used, and it's charged at a rate of
-$0.05/GB/mo. Even if you use the full 25 GB disk, that will be $1.25/mo.
+[$0.05/GB/mo](https://www.digitalocean.com/community/questions/a-snapshot-will-be-full-charged-when-created-or-will-be-per-hour-like-other-services).
+Even if you use the full 25 GB disk, that will be $1.25/mo.
 
-So, if you have a pet development droplet, it is cheaper to keep it as a
-snapshot while you are not using it. But the cycle of snapshotting, deleting
-the droplet, restoring the droplet and deleting the snapshot is tedious to
-perform through the web interface.
+### Hetzner
 
-## Can't I do that with doctl already?
+At the time of writing this, the cheapest droplet—with 2GB RAM, 20 GB disk—costs
+3€/mo. It will be billed even when it is off.
+
+Meanwhile, snapshot cost is based on space used, and it's charged at a rate of
+$0.01/GB/mo.
+
+## Can't I do that with each cloud provider's command-line tools already?
 
 Yes. I just reinvented the wheel for educational purposes.
+
+### DO
 
 Here's a [doctl tutorial](https://www.digitalocean.com/community/tutorials/how-to-use-doctl-the-official-digitalocean-command-line-client).
 
@@ -37,15 +52,21 @@ Here are some doctl example commands:
     doctl compute snapshot get 11111111 --verbose
     doctl compute snapshot delete 11111111 --force
 
+### Hetzner
+
+See the [hcloud documentation](https://github.com/hetznercloud/cli).
+
 ## Ok, I want to use this anyway, how to build & install it?
 
 You'll need [GHC](https://www.haskell.org/ghc/download.html) and [cabal-install >= 2.2](https://www.haskell.org/cabal/download.html).
 
 Inside the project folder, run
 
-    cabal new-install --symlink-bindir=<targetpath>
+    cabal v2-install --symlink-bindir=<targetpath>
 
 ## How to configure it, once installed?
+
+TODO: update this
 
 You must have a Digital Ocean token in an environment variable.
 

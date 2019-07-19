@@ -147,7 +147,7 @@ makeDO token = Provider makeCandidates makeServerState
                     do log "More than one public ip on droplet!"
                        return (IPAddress ip :| (IPAddress <$> ips))))
           <|>
-          do log "Target is snapshot, source is droplet."
+          do log "Checking if target is snapshot n' source is droplet."
              d <- withExceptT
                   (:[])
                   (doable
