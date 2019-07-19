@@ -113,30 +113,32 @@ instance ToJSON DOServer where
     toJSON = recordToJSON doServerAliases
 
 makeDO :: Token -> Provider DOServer  
-makeDO token = Provider servers upOrDown 
+makeDO token = Provider makeCandidates makeServerState
   where
-  servers :: IO [DOServer]
-  servers = do
+  makeCandidates :: IO [DOServer]
+  makeCandidates = do
     ds <- droplets token
     let toServer = dropletAttrs.to (\x -> DOServer x (view name x <> "_snapshot"))
     pure (toListOf (folded.toServer) ds)
-  upOrDown (DOServer { _configDropletAttrs, _configSnapshotName }) = do
-    log "Checking if target is droplet n' source is snapshot."
-    s' <- runExceptT $
-        doable 
-        (droplets token)
-        (dropletMatches  _configDropletAttrs)
-        (snapshots token)
-        (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
-    case s' of
-        Right s -> return (ServerIsDown (Thrifty.StartupAction do
-            log "Restoring droplet..."                        
-            let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
-            d <- createDroplet token _configDropletAttrs snapshotId0
-            log "Deleting snapshot..." 
-            deleteSnapshot token (view snapshotId s)
-            log "Echoing droplet on stdout..." 
-            case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
+  makeServerState :: DOServer -> IO ServerState
+  makeServerState (DOServer { _configDropletAttrs, _configSnapshotName }) = do
+    let fallible =
+          do log "Checking if target is droplet n' source is snapshot."
+             s <- withExceptT 
+                  (:[])
+                  (doable 
+                      (droplets token)
+                      (dropletMatches  _configDropletAttrs)
+                      (snapshots token)
+                      (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs)))
+             return (ServerIsDown (Thrifty.StartupAction do
+               log "Restoring droplet..."                        
+               let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
+               d <- createDroplet token _configDropletAttrs snapshotId0
+               log "Deleting snapshot..." 
+               deleteSnapshot token (view snapshotId s)
+               log "Echoing droplet on stdout..." 
+               case toListOf (networks.folded.filtered (has (addressType._PublicIP)).address) d of
                  [] -> 
                     throwError (userError "No public ip on droplet!")
                  ip : [] -> 
@@ -144,28 +146,31 @@ makeDO token = Provider servers upOrDown
                  ip : ips  -> 
                     do log "More than one public ip on droplet!"
                        return (IPAddress ip :| (IPAddress <$> ips))))
-        Left _ -> 
+          <|>
           do log "Target is snapshot, source is droplet."
-             d' <- runExceptT $ 
-                 doable 
-                 (snapshots token)
-                 (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
-                 (droplets token)
-                 (dropletMatches _configDropletAttrs)
-             case d' of
-                 Right d -> return (ServerIsUp (Thrifty.ShutdownAction do
-                     log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
-                     case view dropletStatus d of
-                         Active -> do shutdownDroplet token (view dropletId d)
-                                      pure ()
-                         Off ->    pure ()
-                         _ ->      throwError (userError ("Droplet not in valid status for snapshot."))
-                     log "Taking snapshot..." 
-                     createSnapshot token _configSnapshotName (view dropletId d) 
-                     log "Deleting droplet..." 
-                     deleteDroplet token (view dropletId d)
-                     log "Done."))
-                 Left _ -> throwIO (userError "server in strange state") 
+             d <- withExceptT
+                  (:[])
+                  (doable
+                      (snapshots token)
+                      (snapshotMatches _configSnapshotName (view regionSlug _configDropletAttrs))
+                      (droplets token)
+                      (dropletMatches _configDropletAttrs))
+             return (ServerIsUp (Thrifty.ShutdownAction do
+               log ("Droplet status is " ++ show (view dropletStatus d) ++ ".")
+               case view dropletStatus d of
+                   Active -> do shutdownDroplet token (view dropletId d)
+                                pure ()
+                   Off ->    pure ()
+                   _ ->      throwError (userError ("Droplet not in valid status for snapshot."))
+               log "Taking snapshot..." 
+               createSnapshot token _configSnapshotName (view dropletId d) 
+               log "Deleting droplet..." 
+               deleteDroplet token (view dropletId d)
+               log "Done."))
+    r <- runExceptT fallible
+    case r of
+        Left errs -> throwIO (userError ("server in strange state " ++ show errs)) 
+        Right actual -> return actual
 
 -- | http://hackage.haskell.org/package/req-1.0.0/docs/Network-HTTP-Req.html
 -- | https://developers.digitalocean.com/documentation/v2/
