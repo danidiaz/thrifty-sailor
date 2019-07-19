@@ -183,6 +183,50 @@ data IF = IF
 address :: Lens' IF Text
 address = field' @"_address"
 
+
+--
+
+data Action = Action
+            {
+                _actionId :: ActionId
+            ,   _actionStatus :: ActionStatus 
+            } deriving (Generic,Show)
+
+instance FromJSON Action where
+    parseJSON = withObject "Action" $ \v -> 
+        Action <$> v .: "id"
+               <*> v .: "status"
+
+actionId :: Lens' Action ActionId
+actionId = field' @"_actionId"
+
+actionStatus :: Lens' Action ActionStatus
+actionStatus = field' @"_actionStatus"
+
+type ActionId = Integer
+
+data ActionStatus = ActionRunning
+                  | ActionSuccess
+                  | ActionError
+                  deriving (Show,Generic)
+                   
+instance FromJSON ActionStatus where
+    parseJSON = withText "ActionStatus" $ \t -> 
+        case t of
+            "running" -> pure ActionRunning
+            "success" -> pure ActionSuccess
+            "error" -> pure ActionError
+            _ -> empty
+
+_ActionRunning :: Traversal' ActionStatus ()
+_ActionRunning = _Ctor' @"ActionRunning" 
+
+_ActionSuccess :: Traversal' ActionStatus ()
+_ActionSuccess =  _Ctor' @"ActionSuccess" 
+
+_ActionError :: Traversal' ActionStatus ()
+_ActionError = _Ctor' @"ActionError" 
+
 --
 complete 
     :: Show a 
