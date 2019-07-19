@@ -435,11 +435,17 @@ createSnapshot token name dropletId0 =
                 (actionStatus._ActionCompleted)
                 (action token (view actionId a))
 
+-- "No response body will be sent back, but the response code will indicate
+-- success. Specifically, the response code will be a 204, which means that the
+-- action was successful with no returned body data."
+--
+-- https://developers.digitalocean.com/documentation/v2/#delete-a-droplet
 deleteDroplet :: Token -> DropletId -> IO ()
 deleteDroplet token dropletId0 = 
     do doDELETE' (fromString ("/v2/droplets/" ++show dropletId0)) token
        return ()
 
+-- "A status of 204 will be given. This indicates that the request was processed successfully, but that no response body is needed."
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
     do doDELETE' (fromString ("/v2/snapshots/" ++Data.Text.unpack snapshotId0)) token
