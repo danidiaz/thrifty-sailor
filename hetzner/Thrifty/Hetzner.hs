@@ -50,12 +50,14 @@ import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,Relati
 
 data HetznerServer = HetznerServer 
             { 
-                _foo :: Text
+                _configDropletAttrs :: NameAndType
+            ,   _configSnapshotName :: Text
             } deriving (Show,Generic,FromRecord,ToRecord)
 
 hetznerServerAliases :: Aliases _
 hetznerServerAliases =
-     alias @"_foo" "foo"
+     alias @"_configDropletAttrs" "server"
+   . alias @"_configSnapshotName" "snapshot_name"
    $ unit
 
 instance FromJSON HetznerServer where
@@ -84,8 +86,8 @@ droplets token = getDroplets <$> liftIO (doGET' "/v2/droplets" token)
 data Droplet = Droplet 
              {
                 _dropletId :: DropletId
---             ,  _dropletAttrs :: NameRegionSize
              ,  _status :: DropletStatus
+             ,  _nameAndType :: NameAndType
              ,  _networks :: [IF]
              } deriving (Generic,Show)
 
@@ -93,16 +95,48 @@ instance FromJSON Droplet where
     parseJSON = withObject "Droplet" \v -> 
       Droplet <$> v .: "id"
               <*> v .: "status"
-              <*> do publicNetworks <- v .: "public_net"
-                     publicIPv4Networks <- publicNetworks .: "ipv4"
-                     ip <- publicIPv4Networks .: "ip"
-                     return [IF ip]
+              <*> do name <- v .: "name"
+                     serverType <- v .: "server_type"
+                     serverTypeName <- serverType .: "name"
+                     return (NameAndType name serverTypeName)
+              <*> (do publicNetworks <- v .: "public_net"
+                      publicIPv4Networks <- publicNetworks .: "ipv4"
+                      ip <- publicIPv4Networks .: "ip"
+                      return [IF ip]
+                   <|>
+                   return [])
 
 dropletId :: Lens' Droplet Integer
 dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
 dropletStatus = field' @"_status"
+
+data NameAndType = NameAndType
+    {
+        _serverName :: Text,
+        _serverType :: Text
+    } deriving (Generic,Show,Eq,ToRecord,FromRecord)
+
+nameAndTypeAliases :: Aliases _
+nameAndTypeAliases =
+     alias @"_serverName" "server_name"
+   . alias @"_serverType" "server_type"
+   $ unit
+
+-- | Used only in Config object.
+instance FromJSON NameAndType where
+    parseJSON = nominalRecordFromJSON nameAndTypeAliases
+
+-- | Used only in Config object.
+instance ToJSON NameAndType where
+    toJSON = recordToJSON nameAndTypeAliases
+
+serverName :: Lens' NameAndType Text
+serverName = field' @"_serverName"
+
+serverType :: Lens' NameAndType Text
+serverType = field' @"_serverType"
 
 networks :: Lens' Droplet [IF]
 networks = field' @"_networks"
