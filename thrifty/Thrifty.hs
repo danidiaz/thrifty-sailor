@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
-module Thrifty (Provider(..),ServerState(..),SomeProvider(..),IPAddress(..)) where
+{-# LANGUAGE RankNTypes #-}
+module Thrifty (Provider(..),ServerState(..),SomeProvider(..),IPAddress(..),withSomeProvider) where
 
 import Data.Aeson
 import Data.Text
@@ -19,3 +20,6 @@ newtype IPAddress = IPAddress { getIPAddress :: Text } deriving (Show,Eq)
 data SomeProvider = 
     forall server. (FromJSON server, ToJSON server) => SomeProvider (Provider server)
 
+withSomeProvider :: forall r . SomeProvider -> (forall server. (FromJSON server, ToJSON server) => Provider server -> r) -> r
+withSomeProvider (SomeProvider provider) callback = callback provider
+    

@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
@@ -98,48 +99,37 @@ defaultMain (Data.Map.fromList -> plugins) = do
             do let providerNames = Data.Map.keys plugins
                for_ providerNames \(ProviderName name) -> Data.Text.IO.putStrLn name
         Candidates providerName -> 
-            do let Just makeProvider = Data.Map.lookup providerName plugins
-               provider <- makeProvider
-               case provider of
-                   SomeProvider (Provider { candidates, serverState }) -> 
-                       do cs <- candidates 
-                          Data.ByteString.Lazy.hPut stdout (encode cs)
+            withSelectedProvider providerName \(Provider { candidates }) ->
+              do cs <- candidates 
+                 Data.ByteString.Lazy.hPut stdout (encode cs)
         Status providerName serverName -> 
-            do let Just makeProvider = Data.Map.lookup providerName plugins
-               provider <- makeProvider
-               case provider of
-                   SomeProvider (Provider { candidates, serverState }) -> 
-                     do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
-                            Just v = Data.Map.lookup serverName selectedProviderConfs
-                            Data.Aeson.Success conf = fromJSON v
-                        state <- serverState conf
-                        print ("server is " ++ case state of
-                            ServerIsDown _   -> "down"
-                            ServerIsUp _ -> "up")
+            withSelectedServerState providerName serverName \state -> 
+              do print ("server is " ++ case state of
+                   ServerIsDown _   -> "down"
+                   ServerIsUp _ -> "up")
         Up providerName serverName ->
-            do let Just makeProvider = Data.Map.lookup providerName plugins
-               provider <- makeProvider
-               case provider of
-                   SomeProvider (Provider { candidates, serverState }) -> 
-                     do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
-                            Just v = Data.Map.lookup serverName selectedProviderConfs
-                            Data.Aeson.Success conf = fromJSON v
-                        ServerIsDown action <- serverState conf
-                        ips <- action
-                        for_ ips \(IPAddress ip) -> Data.Text.IO.putStrLn ip
+            withSelectedServerState providerName serverName \(ServerIsDown action) -> 
+              do ips <- action
+                 for_ ips \(IPAddress ip) -> Data.Text.IO.putStrLn ip
         Down providerName serverName ->
-            do let Just makeProvider = Data.Map.lookup providerName plugins
-               provider <- makeProvider
-               case provider of
-                   SomeProvider (Provider { candidates, serverState }) -> 
-                     do confs <- load
-                        let Just selectedProviderConfs = Data.Map.lookup providerName confs
-                            Just v = Data.Map.lookup serverName selectedProviderConfs
-                            Data.Aeson.Success conf = fromJSON v
-                        ServerIsUp action <- serverState conf
-                        action
+            withSelectedServerState providerName serverName \(ServerIsUp action) ->
+              do action
+  where
+    withSelectedProvider :: forall r . ProviderName -> (forall server. (FromJSON server, ToJSON server) => Provider server -> IO r) -> IO r
+    withSelectedProvider providerName callback =
+      do let Just makeProvider = Data.Map.lookup providerName plugins
+         provider <- makeProvider
+         withSomeProvider provider callback
+
+    withSelectedServerState :: forall r . ProviderName -> ServerName -> (ServerState IO -> IO r) -> IO r
+    withSelectedServerState providerName serverName callback =
+        withSelectedProvider providerName \provider ->  
+          do servers <- load
+             let Just selectedProviderConfs = Data.Map.lookup providerName servers
+                 Just v = Data.Map.lookup serverName selectedProviderConfs
+                 Data.Aeson.Success server = fromJSON v
+             queriedState <- serverState provider server
+             callback queriedState
 
 load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
 load = 
