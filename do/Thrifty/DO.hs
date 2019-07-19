@@ -89,7 +89,8 @@ import qualified Data.Text.Read
 
 import           Thrifty
 import           Thrifty.Prelude
-import           Thrifty.Delays
+import qualified Thrifty.Delays
+import           Thrifty.Delays (RetryPlan(..),seconds,factor)
 import           Thrifty.JSON
 import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
 
@@ -491,23 +492,24 @@ createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId =
                 (dropletStatus._Active)
                 (droplet token (view dropletId d))
 
-complete :: Show a 
-         => (Fold a ()) -- ^ error check
-         -> (Fold a ()) -- ^ completion check
-         -> IO a 
-         -> IO a
-complete errCheck doneCheck action =
-    do retries <- effects
-                . giveUp (seconds 360)
-                . retrying (waits (seconds 2) (factor 1.5) (seconds 15)) 
-                $ do a <- action
-                     log ("Checked again, and the result was: " ++ show a)
-                     when (has errCheck a) 
-                          (throwIO (userError ("Action error.")))
-                     pure $ if has doneCheck a
-                                then Right a
-                                else Left ()
-       liftError (const (userError ("Timeout waiting."))) retries
+
+complete 
+    :: Show a 
+    => (Fold a ()) -- ^ error check
+    -> (Fold a ()) -- ^ completion check
+    -> IO a 
+    -> IO a
+complete errCheck doneCheck = 
+    Thrifty.Delays.complete
+    (RetryPlan 
+       { 
+           giveUpAfter = seconds 360,
+           initialDelay = seconds 2,
+           increaseFactor = factor 1.5,
+           maximumDelay = seconds 15 
+       })
+    (has errCheck)
+    (has doneCheck)
 
 action :: Token -> ActionId -> IO Action
 action token actionId0 = 

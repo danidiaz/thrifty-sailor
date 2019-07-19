@@ -7,6 +7,9 @@ module Thrifty.Prelude (
     ,   absence
     ,   log
     ,   doable
+    ,   IOException
+    ,   userError
+    ,   throwIO
     ) where
 
 import           Prelude hiding (log)

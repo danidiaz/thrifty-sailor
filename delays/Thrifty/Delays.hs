@@ -7,6 +7,8 @@ module Thrifty.Delays (
    , waits
    , giveUp
    , retrying
+   , complete
+   , RetryPlan(..)
    , S.effects
 ) where
 
@@ -16,6 +18,7 @@ import           Data.Fixed
 import           Data.Time.Clock
 import           Streaming
 import qualified Streaming.Prelude as S
+import           Thrifty.Prelude
 
 newtype Seconds = Seconds { getSeconds :: Int } deriving (Eq,Ord,Show)
 
@@ -64,3 +67,30 @@ giveUp (Seconds s) stream =
                            then Right ()
                            else Left ()
     S.zipWith (\_ a -> a) (Left <$> tiredOfWaiting) (Right <$> stream)
+
+data RetryPlan = RetryPlan {
+       giveUpAfter :: Seconds,
+       initialDelay :: Seconds,
+       increaseFactor :: Factor,
+       maximumDelay :: Seconds
+    }
+
+complete :: Show a 
+         => RetryPlan
+         -> (a -> Bool) -- ^ error check
+         -> (a -> Bool) -- ^ completion check
+         -> IO a 
+         -> IO a
+complete (RetryPlan giveUpAfter initialDelay increaseFactor maximumDelay) errCheck doneCheck action =
+    do retries <- S.effects
+                . giveUp giveUpAfter
+                . retrying (waits initialDelay increaseFactor maximumDelay) 
+                $ do a <- action
+                     Thrifty.Prelude.log ("Checked again, and the result was: " ++ show a)
+                     when (errCheck a) 
+                          (throwIO (userError ("Action error.")))
+                     pure $ if doneCheck a
+                                then Right a
+                                else Left ()
+       liftError (const (userError ("Timeout waiting."))) retries
+
