@@ -228,6 +228,33 @@ _ActionError :: Traversal' ActionStatus ()
 _ActionError = _Ctor' @"ActionError" 
 
 --
+
+newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
+
+instance FromJSON Snapshots where
+    parseJSON = withObject "Snapshots" $ \v -> 
+        Snapshots <$> v .: "snapshots"
+
+type SnapshotId = Text
+
+data Snapshot = Snapshot
+              {
+                _snapshotId :: Text
+              , _snapshotName :: Text
+              } deriving (Generic,Show)
+
+snapshotId :: Lens' Snapshot Text
+snapshotId = field' @"_snapshotId"
+
+snapshotName :: Lens' Snapshot Text
+snapshotName = field' @"_snapshotName"
+
+instance FromJSON Snapshot where
+    parseJSON = withObject "Snapshot" $ \v -> 
+        Snapshot <$> v .: "id"
+                 <*> v .: "name"
+
+--
 complete 
     :: Show a 
     => (Fold a ()) -- ^ error check
