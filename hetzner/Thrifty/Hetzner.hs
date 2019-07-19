@@ -67,7 +67,13 @@ instance ToJSON HetznerServer where
     toJSON = recordToJSON hetznerServerAliases
 
 makeHetzner :: Token -> Provider HetznerServer  
-makeHetzner token = Provider undefined undefined
+makeHetzner token = Provider makeCandidates undefined
+  where
+  makeCandidates :: IO [HetznerServer]
+  makeCandidates = do
+    ds <- droplets token
+    let toServer = nameAndType.to (\x -> HetznerServer x (view serverName x <> "_snapshot"))
+    pure (toListOf (folded.toServer) ds)
 
 --
 newtype Droplets = Droplets { getDroplets :: [Droplet] } deriving Show
@@ -111,6 +117,9 @@ dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
 dropletStatus = field' @"_status"
+
+nameAndType :: Lens' Droplet NameAndType
+nameAndType = field' @"_nameAndType"
 
 data NameAndType = NameAndType
     {
