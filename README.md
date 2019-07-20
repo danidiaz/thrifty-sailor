@@ -72,8 +72,8 @@ Assume you have a running vps that you want to be managed by thrifty.
 You'll need to define one or both of these environment variables, with the
 corresponding cloud provider token as value:
 
-    - For Digital Ocean: `DIGITALOCEAN_ACCESS_TOKEN`
-    - For Hetzner: `HCLOUD_TOKEN` 
+    - For Digital Ocean: DIGITALOCEAN_ACCESS_TOKEN
+    - For Hetzner: HCLOUD_TOKEN 
 
 Then in the file 
 
