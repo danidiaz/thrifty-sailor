@@ -76,6 +76,8 @@ library hetz
         transformers     >= 0.5,
         lens             >= 4.4 && <5,
         generic-lens     >= 1.0.0.0,
+        containers       >= 0.6,
+        scientific       >= 0.3.6,
         t-network-sig,
         delays,
         thrifty-json,

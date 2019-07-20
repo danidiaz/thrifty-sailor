@@ -32,14 +32,17 @@ import           Control.Monad.Trans.Except
 import           Control.Lens hiding ((.=))
 import           Data.Text (Text)            
 import qualified Data.Text
+import qualified Data.Map
+import           Data.Map (Map)
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import           Data.String (fromString)
 import           Control.Exception
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
 import           GHC.Generics (Generic)
-import           Data.RBR
-
+import qualified Data.RBR
+import           Data.RBR (FromRecord,ToRecord,unit)
+import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text.Read
 
 import           Thrifty
@@ -52,13 +55,13 @@ import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,Relati
 data HetznerServer = HetznerServer 
             { 
                 _configServerAttrs :: PersistentAttributes
-            ,   _configSnapshotName :: Text
+            ,   _configSnapshotLabelValue :: SnapshotLabelValue
             } deriving (Show,Generic,FromRecord,ToRecord)
 
 hetznerServerAliases :: Aliases _
 hetznerServerAliases =
      alias @"_configServerAttrs" "server"
-   . alias @"_configSnapshotName" "snapshot_name"
+   . alias @"_configSnapshotLabelValue" "snapshot_label_value"
    $ unit
 
 instance FromJSON HetznerServer where
@@ -76,7 +79,7 @@ makeHetzner token = Provider makeCandidates undefined
     let toServer = attributes.to (\x -> HetznerServer x (view serverName x <> "_snapshot"))
     pure (toListOf (folded.toServer) ds)
   makeServerState :: HetznerServer -> IO ServerState
-  makeServerState (HetznerServer { _configServerAttrs, _configSnapshotName }) = do
+  makeServerState (HetznerServer { _configServerAttrs, _configSnapshotLabelValue }) = do
     let fallible =
           do log "Checking if target is server n' source is snapshot."
              s <- withExceptT 
@@ -85,11 +88,10 @@ makeHetzner token = Provider makeCandidates undefined
                       (servers token)
                       (serverMatches  _configServerAttrs)
                       (snapshots token)
-                      (snapshotMatches _configSnapshotName))
+                      (snapshotMatches _configSnapshotLabelValue))
              return (ServerIsDown (Thrifty.StartupAction do
                log "Restoring server..."                        
-               let Right (snapshotId0,_) = Data.Text.Read.decimal (view snapshotId s)
-               d <- createServer token _configServerAttrs snapshotId0
+               d <- createServer token _configServerAttrs (view snapshotId s)
                log "Deleting snapshot..." 
                deleteSnapshot token (view snapshotId s)
                log "Echoing server on stdout..." 
@@ -107,7 +109,7 @@ makeHetzner token = Provider makeCandidates undefined
                   (:[])
                   (doable
                       (snapshots token)
-                      (snapshotMatches _configSnapshotName)
+                      (snapshotMatches _configSnapshotLabelValue)
                       (servers token)
                       (serverMatches _configServerAttrs))
              return (ServerIsUp (Thrifty.ShutdownAction do
@@ -118,7 +120,7 @@ makeHetzner token = Provider makeCandidates undefined
                    Off -> pure ()
                    _ -> throwError (userError ("Server not in valid status for snapshot."))
                log "Taking snapshot..." 
-               createSnapshot token (view serverId d) 
+               createSnapshot token _configSnapshotLabelValue (view serverId d) 
                log "Deleting server..." 
                deleteServer token (view serverId d)
                log "Done."))
@@ -308,26 +310,37 @@ instance FromJSON Snapshots where
 
 data Snapshot = Snapshot
               {
-                _snapshotId :: SnapshotId
+                _snapshotId :: SnapshotId,
+                _snapshotLabels :: Map Text SnapshotLabelValue
               } deriving (Generic,Show)
 
 instance FromJSON Snapshot where
     parseJSON = withObject "Snapshot" $ \v -> 
-        Snapshot <$> v .: "id"
+        do Right i <- floatingOrInteger <$> v .: "id" 
+           labels <- v .: "tags"
+           pure (Snapshot i labels)
 
-type SnapshotId = Text
+type SnapshotId = Int
 
-snapshotId :: Lens' Snapshot Text
+thriftyLabelKey :: Text
+thriftyLabelKey = "thrifty-stable-identifier"
+
+type SnapshotLabelValue = Text
+
+snapshotId :: Lens' Snapshot SnapshotId
 snapshotId = field' @"_snapshotId"
+
+snapshotLabels :: Lens' Snapshot (Map Text SnapshotLabelValue)
+snapshotLabels = field' @"_snapshotLabels"
 
 --
 serverMatches :: PersistentAttributes -> Server -> Bool 
 serverMatches attrs d =
     attrs == view attributes d   
 
-snapshotMatches :: SnapshotId -> Snapshot -> Bool
-snapshotMatches snapshotId0 s =
-       snapshotId0 == view snapshotId s
+snapshotMatches :: SnapshotLabelValue -> Snapshot -> Bool
+snapshotMatches snapshotLabelValue0 =
+    has (snapshotLabels.ix thriftyLabelKey.only snapshotLabelValue0)
 
 --
 action :: Token -> ActionId -> IO Action
@@ -337,12 +350,18 @@ action token actionId0 =
 
 --
 -- 
-createSnapshot :: Token -> ServerId -> IO Action
-createSnapshot token serverId0 = 
+createSnapshot :: Token -> SnapshotLabelValue -> ServerId -> IO Action
+createSnapshot token label serverId0 = 
     do WrappedAction a <- doPOST' 
                           (fromString ("/v1/servers/"++ show serverId0 ++"/actions/create_image"))
                           []
-                          (object ["type" .= String "snapshot","description" .= String "thrifty snapshot"])
+                          (object 
+                            [   
+                                "type" .= String "snapshot",
+                                "description" .= String "thrifty snapshot",
+                                "labels" .= 
+                                    object [ "thrifty" .= label ]
+                            ])
                           token
        log ("Initiated snapshot action: " ++ show a)
        complete (actionStatus._ActionError)
@@ -352,7 +371,7 @@ createSnapshot token serverId0 =
 -- Unlike the deletes in DO, this returns a body pointing to an action.
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
-    do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++Data.Text.unpack snapshotId0)) token
+    do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++show snapshotId0)) token
        log ("Initiated delete snapshot action: " ++ show a)
        complete (actionStatus._ActionError)
                 (actionStatus._ActionSuccess)
@@ -379,7 +398,7 @@ createServer token (PersistentAttributes {_serverName,_serverType,_serverLocatio
                  "name" .= _serverName,
                  "server_type" .= _serverType,
                  "location" .= _serverLocation,
-                 "image" .= imageId
+                 "image" .= show imageId
               ])
             token
        log ("Initiated server creation: " ++ show d)
@@ -404,7 +423,7 @@ servers token = getServers <$> liftIO (doGET' "/v1/servers" token)
 shutdownServer :: Token -> ServerId -> IO Action
 shutdownServer token serverId0 =
     do WrappedAction a <- doPOST' 
-                          (fromString ("/v2/servers/"++ show serverId0 ++"/actions/poweroff"))
+                          (fromString ("/v1/servers/"++ show serverId0 ++"/actions/poweroff"))
                           []
                           ()
                           token
