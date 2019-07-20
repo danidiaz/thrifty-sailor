@@ -2,9 +2,10 @@
 
 ## What's this?
 
-A command-line tool for taking a snapshot of a Digital Ocean droplet and
-destroying the droplet afterwards. Also works in reverse direction: restore a
-droplet from a snapshot and destroy the snapshot afterwards.
+A command-line tool for taking a snapshot of a cloud provider (Digital Ocean or
+Hetzner) server and destroying the droplet afterwards. Also works in reverse
+direction: restore a server from a snapshot and destroy the snapshot
+afterwards. 
 
 ## Why do that?
 
@@ -66,42 +67,88 @@ Inside the project folder, run
 
 ## How to configure it, once installed?
 
-TODO: update this
+Assume you have a running vps that you want to be managed by thrifty.
 
-You must have a Digital Ocean token in an environment variable.
+You'll need to define one or both of these environment variables, with the
+corresponding cloud provider token as value:
 
-First, execute:
+    - For Digital Ocean: `DIGITALOCEAN_ACCESS_TOKEN`
+    - For Hetzner: `HCLOUD_TOKEN` 
 
-    thrifty-sailor example
-
-It will spit out an example JSON configuration file in stdout. Copy it to 
+Then in the file 
 
     $HOME/.config/thrifty-sailor/config.json 
-    
-As the value of `token_environment_variable` write the name of the environment
-variable holding the Digital Ocean token.
 
-Then run
+write the following config skeleton:
 
-    thrifty-sailor status
+```
+{
+    "do" : {
+    },
+    "hetzner" : {
+    }
+}
+```
 
-A list of your droplets and snapshots will appear on stdout. Select the droplet
-you want to target and write its "name", "region_slug" and "size_slug" in the
-configuration file.
+We will put information about server-snapshot pairs there.
 
-Finally, in the "snapshot_name" entry of the configuration file, write the name
-you want to give to the snapshot that will be generated.
 
-Having done this, invoking
+### Digital Ocean
 
-    thrifty-sailor down
+For Digital Ocean, run `thrifty candidates do`. A JSON array of possible entries
+will appear on stdout. Copy one of the entries under the "do" object, giving it a name,
+for example "foo":
 
-will shut down the target droplet, snapshot it, and delete the droplet.
+```
+{
+    "do" : {
+        "foo" : {"droplet":{"size_slug":"s-1vcpu-1gb","region_slug":"ams3","name":"somedropletname"},"snapshot_name":"somedropletname_snapshot"}
+    }
+}
+```
 
-And invoking
+You can change the `snapshot_name` at this point, if you want.
 
-    thrifty-sailor up 
+Having done this, running
+
+    thrifty down do foo
+
+will shut down the target droplet, snapshot it, and **delete** the droplet.
+
+Running
+
+    thrifty up do foo 
 
 will restore the droplet from the snapshot, wait until the droplet is active,
+and delete the snapshot.
+
+### Hetzner
+
+
+For Hetzner, run `thrifty candidates hetzner`. A JSON array of possible entries
+will appear on stdout. Copy one of the entries under the "hezner" object, giving it a name,
+for example "foo":
+
+```
+{
+    "hetzner" : {
+        "foo" : {"server":{"server_type":"cx11","server_name":"somedropletname","server_location":"nbg1"}, "snapshot_label_value":"somedropletname_snapshot"}
+    }
+}
+```
+
+You can change the `snapshot_label_value` at this point, if you want.
+
+Having done this, running
+
+    thrifty down hetzner foo
+
+will shut down the target server, snapshot it, and **delete** the server.
+
+Running
+
+    thrifty up hetzner foo 
+
+will restore the server from the snapshot, wait until the server is active,
 and delete the snapshot.
 
