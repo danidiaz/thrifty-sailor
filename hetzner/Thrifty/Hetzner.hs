@@ -51,7 +51,7 @@ import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,Relati
 
 data HetznerServer = HetznerServer 
             { 
-                _configServerAttrs :: NameAndType
+                _configServerAttrs :: PersistentAttributes
             ,   _configSnapshotName :: Text
             } deriving (Show,Generic,FromRecord,ToRecord)
 
@@ -73,7 +73,7 @@ makeHetzner token = Provider makeCandidates undefined
   makeCandidates :: IO [HetznerServer]
   makeCandidates = do
     ds <- servers token
-    let toServer = nameAndType.to (\x -> HetznerServer x (view serverName x <> "_snapshot"))
+    let toServer = attributes.to (\x -> HetznerServer x (view serverName x <> "_snapshot"))
     pure (toListOf (folded.toServer) ds)
   makeServerState :: HetznerServer -> IO ServerState
   makeServerState (HetznerServer { _configServerAttrs, _configSnapshotName }) = do
@@ -141,24 +141,30 @@ data Server = Server
              {
                 _serverId :: ServerId
              ,  _status :: ServerStatus
-             ,  _nameAndType :: NameAndType
              ,  _networks :: [IF]
+             ,  _attributes :: PersistentAttributes
              } deriving (Generic,Show)
 
 instance FromJSON Server where
     parseJSON = withObject "Server" \v -> 
       Server <$> v .: "id"
              <*> v .: "status"
-             <*> do name <- v .: "name"
-                    serverType <- v .: "server_type"
-                    serverTypeName <- serverType .: "name"
-                    return (NameAndType name serverTypeName)
              <*> (do publicNetworks <- v .: "public_net"
                      publicIPv4Networks <- publicNetworks .: "ipv4"
                      ip <- publicIPv4Networks .: "ip"
                      return [IF ip]
                   <|>
                   return [])
+             <*> do name <- 
+                        v .: "name"
+                    typeName <- 
+                        do serverType <- v .: "server_type"
+                           serverType .: "name"
+                    locationName <-
+                        do datacenter <- v .: "datacenter"
+                           location <- datacenter .: "location"
+                           location .: "name"
+                    return (PersistentAttributes name typeName locationName)
 
 type ServerId = Integer
 
@@ -168,34 +174,39 @@ serverId = field' @"_serverId"
 serverStatus :: Lens' Server ServerStatus
 serverStatus = field' @"_status"
 
-nameAndType :: Lens' Server NameAndType
-nameAndType = field' @"_nameAndType"
+attributes :: Lens' Server PersistentAttributes
+attributes = field' @"_attributes"
 
-data NameAndType = NameAndType
+data PersistentAttributes = PersistentAttributes
     {
         _serverName :: Text,
-        _serverType :: Text
+        _serverType :: Text,
+        _serverLocation :: Text
     } deriving (Generic,Show,Eq,ToRecord,FromRecord)
 
-nameAndTypeAliases :: Aliases _
-nameAndTypeAliases =
+persistentAttributesAliases :: Aliases _
+persistentAttributesAliases =
      alias @"_serverName" "server_name"
    . alias @"_serverType" "server_type"
+   . alias @"_serverLocation" "server_location"
    $ unit
 
 -- | Used only in Config object.
-instance FromJSON NameAndType where
-    parseJSON = nominalRecordFromJSON nameAndTypeAliases
+instance FromJSON PersistentAttributes where
+    parseJSON = nominalRecordFromJSON persistentAttributesAliases
 
 -- | Used only in Config object.
-instance ToJSON NameAndType where
-    toJSON = recordToJSON nameAndTypeAliases
+instance ToJSON PersistentAttributes where
+    toJSON = recordToJSON persistentAttributesAliases
 
-serverName :: Lens' NameAndType Text
+serverName :: Lens' PersistentAttributes Text
 serverName = field' @"_serverName"
 
-serverType :: Lens' NameAndType Text
+serverType :: Lens' PersistentAttributes Text
 serverType = field' @"_serverType"
+
+serverLocation :: Lens' PersistentAttributes Text
+serverLocation = field' @"_serverLocation"
 
 networks :: Lens' Server [IF]
 networks = field' @"_networks"
@@ -310,9 +321,9 @@ snapshotId :: Lens' Snapshot Text
 snapshotId = field' @"_snapshotId"
 
 --
-serverMatches :: NameAndType -> Server -> Bool 
+serverMatches :: PersistentAttributes -> Server -> Bool 
 serverMatches attrs d =
-    attrs == view nameAndType d   
+    attrs == view attributes d   
 
 snapshotMatches :: SnapshotId -> Snapshot -> Bool
 snapshotMatches snapshotId0 s =
@@ -358,8 +369,8 @@ deleteServer token serverId0 =
        pure ()
 
 
-createServer :: Token -> NameAndType -> SnapshotId -> IO Server
-createServer token (NameAndType {_serverName,_serverType}) imageId = 
+createServer :: Token -> PersistentAttributes -> SnapshotId -> IO Server
+createServer token (PersistentAttributes {_serverName,_serverType,_serverLocation}) imageId = 
     do d <- doPOST' 
             ("/v1/servers/") 
             []
@@ -367,6 +378,7 @@ createServer token (NameAndType {_serverName,_serverType}) imageId =
               [
                  "name" .= _serverName,
                  "server_type" .= _serverType,
+                 "location" .= _serverLocation,
                  "image" .= imageId
               ])
             token
