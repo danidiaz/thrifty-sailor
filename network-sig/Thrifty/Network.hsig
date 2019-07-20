@@ -21,4 +21,9 @@ doGET :: FromJSON a => AbsoluteURL -> Token -> IO a
 
 doPOST :: (ToJSON body, FromJSON result) => AbsoluteURL -> [(Text,[Text])] -> body -> Token -> IO result
 
-doDELETE :: AbsoluteURL -> Token -> IO ()
+-- Delete without returning body
+doDELETE_ :: AbsoluteURL -> Token -> IO ()
+
+-- Delete returning a JSON body
+doDELETE :: (FromJSON result) => AbsoluteURL -> Token -> IO result
+

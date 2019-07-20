@@ -338,6 +338,7 @@ createSnapshot token serverId0 =
                 (actionStatus._ActionSuccess)
                 (action token (view actionId a))
 
+-- Unlike the deletes in DO, this returns a body pointing to an action.
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
     do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++Data.Text.unpack snapshotId0)) token
@@ -345,13 +346,16 @@ deleteSnapshot token snapshotId0 =
        complete (actionStatus._ActionError)
                 (actionStatus._ActionSuccess)
                 (action token (view actionId a))
+       pure ()
 
+-- Unlike the deletes in DO, this returns a body pointing to an action.
 deleteServer :: Token -> ServerId -> IO ()
 deleteServer token serverId0 = 
     do WrappedAction a <- doDELETE' (fromString ("/v1/servers/" ++show serverId0)) token
        complete (actionStatus._ActionError)
                 (actionStatus._ActionSuccess)
                 (action token (view actionId a))
+       pure ()
 
 
 createServer :: Token -> NameAndType -> SnapshotId -> IO Server
@@ -426,7 +430,6 @@ doGET' = doGET . extendAbsoluteURL baseURL
 doPOST' :: (ToJSON body, FromJSON result) => RelativeURL -> [(Text,[Text])] -> body -> Token -> IO result
 doPOST' = doPOST . extendAbsoluteURL baseURL 
 
--- TODO: delete returning a body?
-doDELETE' :: RelativeURL -> Token -> IO ()
+doDELETE' :: FromJSON result => RelativeURL -> Token -> IO result
 doDELETE' = doDELETE . extendAbsoluteURL baseURL
 

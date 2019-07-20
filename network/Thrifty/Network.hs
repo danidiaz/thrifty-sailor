@@ -2,6 +2,7 @@ module Thrifty.Network (
         Token
     ,   doGET
     ,   doPOST
+    ,   doDELETE_
     ,   doDELETE
     ,   extendAbsoluteURL
     ,   AbsoluteURL
@@ -37,10 +38,16 @@ doPOST url params body token =
       r <- postWith options url (toJSON body)
       view responseBody <$> asJSON r
 
-doDELETE :: AbsoluteURL -> Token -> IO ()
-doDELETE url token = 
+doDELETE_ :: AbsoluteURL -> Token -> IO ()
+doDELETE_ url token = 
     do deleteWith (authorized token defaults) url
        pure ()
+
+-- Delete returning a JSON body
+doDELETE :: (FromJSON result) => AbsoluteURL -> Token -> IO result
+doDELETE url token = 
+    do r <- deleteWith (authorized token defaults) url
+       view responseBody <$> asJSON r
 
 authorized :: Token -> Network.Wreq.Options -> Network.Wreq.Options
 authorized token = set auth (Just (oauth2Bearer (Char8.pack token)))

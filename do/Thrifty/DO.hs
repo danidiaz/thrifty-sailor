@@ -92,7 +92,7 @@ import           Thrifty.Prelude
 import qualified Thrifty.Delays
 import           Thrifty.Delays (RetryPlan(..),seconds,factor)
 import           Thrifty.JSON
-import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
+import           Thrifty.Network (doGET,doPOST,doDELETE_,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
 
 data DOServer = DOServer 
             { 
@@ -442,13 +442,13 @@ createSnapshot token name dropletId0 =
 -- https://developers.digitalocean.com/documentation/v2/#delete-a-droplet
 deleteDroplet :: Token -> DropletId -> IO ()
 deleteDroplet token dropletId0 = 
-    do doDELETE' (fromString ("/v2/droplets/" ++show dropletId0)) token
+    do doDELETE_' (fromString ("/v2/droplets/" ++show dropletId0)) token
        return ()
 
 -- "A status of 204 will be given. This indicates that the request was processed successfully, but that no response body is needed."
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
-    do doDELETE' (fromString ("/v2/snapshots/" ++Data.Text.unpack snapshotId0)) token
+    do doDELETE_' (fromString ("/v2/snapshots/" ++Data.Text.unpack snapshotId0)) token
        return ()
 
 data NameRegionSize = NameRegionSize
@@ -552,5 +552,5 @@ doGET' = doGET . extendAbsoluteURL baseURL
 doPOST' :: (ToJSON body, FromJSON result) => RelativeURL -> [(Text,[Text])] -> body -> Token -> IO result
 doPOST' = doPOST . extendAbsoluteURL baseURL 
 
-doDELETE' :: RelativeURL -> Token -> IO ()
-doDELETE' = doDELETE . extendAbsoluteURL baseURL
+doDELETE_' :: RelativeURL -> Token -> IO ()
+doDELETE_' = doDELETE_ . extendAbsoluteURL baseURL
