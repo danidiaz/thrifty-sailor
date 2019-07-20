@@ -11,5 +11,7 @@ X clean up internal t-do code
     - One difference with DO is that you can't specify a name when creating a
       snapshot. Workaround: use tags.
         - Servers *do* have names!
-
+    - Annoying: getting image info lists the *datacenter*, but creating an
+      image from snapshot involves a *location*.
+        - Only the *location* is important!
 
