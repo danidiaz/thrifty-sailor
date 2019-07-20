@@ -42,7 +42,7 @@ module Thrifty.DO (
     ,   deleteDroplet
     ,   ImageId
 
-    ,   NameRegionSize(..)
+    ,   PersistentAttributes(..)
     ,   name
     ,   regionSlug
     ,   sizeSlug
@@ -96,7 +96,7 @@ import           Thrifty.Network (doGET,doPOST,doDELETE_,Token,AbsoluteURL,Relat
 
 data DOServer = DOServer 
             { 
-                _configDropletAttrs :: NameRegionSize
+                _configDropletAttrs :: PersistentAttributes
             ,   _configSnapshotName :: Text
             } deriving (Show,Generic,FromRecord,ToRecord)
 
@@ -187,7 +187,7 @@ type DropletId = Integer
 data Droplet = Droplet 
              {
                 _dropletId :: DropletId
-             ,  _dropletAttrs :: NameRegionSize
+             ,  _dropletAttrs :: PersistentAttributes
              ,  _status :: DropletStatus
              ,  _networks :: [IF]
              } deriving (Generic,Show)
@@ -195,7 +195,7 @@ data Droplet = Droplet
 dropletId :: Lens' Droplet Integer
 dropletId f s = _dropletId s & f <&> \a -> s { _dropletId = a }
 
-dropletAttrs :: Lens' Droplet NameRegionSize
+dropletAttrs :: Lens' Droplet PersistentAttributes
 dropletAttrs f s = _dropletAttrs s & f <&> \a -> s { _dropletAttrs = a }
 
 dropletStatus :: Lens' Droplet DropletStatus
@@ -206,7 +206,7 @@ networks f s = _networks s & f <&> \a -> s { _networks = a }
 
 instance FromJSON Droplet where
     parseJSON = withObject "Droplet" $ \v -> 
-        let attrs = NameRegionSize <$> v .: "name"
+        let attrs = PersistentAttributes <$> v .: "name"
                                    <*> do region <- v .: "region"
                                           region .: "slug"
                                    <*> v .: "size_slug"
@@ -451,41 +451,41 @@ deleteSnapshot token snapshotId0 =
     do doDELETE_' (fromString ("/v2/snapshots/" ++Data.Text.unpack snapshotId0)) token
        return ()
 
-data NameRegionSize = NameRegionSize
+data PersistentAttributes = PersistentAttributes
                     {
                          _name :: Text
                     ,    _regionSlug :: RegionSlug
                     ,    _sizeSlug :: Text      
                     } deriving (Generic,Eq,Show,ToRecord,FromRecord)
 
-nameRegionSizeAliases :: Aliases _
-nameRegionSizeAliases =
+persistenAttributesAliases :: Aliases _
+persistenAttributesAliases =
      alias @"_name"       "name"
    . alias @"_regionSlug" "region_slug"
    . alias @"_sizeSlug"   "size_slug"
    $ unit
 
 -- | Used only in Config object.
-instance FromJSON NameRegionSize where
-    parseJSON = nominalRecordFromJSON nameRegionSizeAliases
+instance FromJSON PersistentAttributes where
+    parseJSON = nominalRecordFromJSON persistenAttributesAliases
 
 -- | Used only in Config object.
-instance ToJSON NameRegionSize where
-    toJSON = recordToJSON nameRegionSizeAliases
+instance ToJSON PersistentAttributes where
+    toJSON = recordToJSON persistenAttributesAliases
 
-name :: Lens' NameRegionSize Text
+name :: Lens' PersistentAttributes Text
 name f s = _name s & f <&> \a -> s { _name = a }
 
-regionSlug :: Lens' NameRegionSize RegionSlug
+regionSlug :: Lens' PersistentAttributes RegionSlug
 regionSlug f s = _regionSlug s & f <&> \a -> s { _regionSlug = a }
 
-sizeSlug :: Lens' NameRegionSize Text
+sizeSlug :: Lens' PersistentAttributes Text
 sizeSlug f s = _sizeSlug s & f <&> \a -> s { _sizeSlug = a }
 
 type ImageId = Integer
 
-createDroplet :: Token -> NameRegionSize -> ImageId -> IO Droplet
-createDroplet token (NameRegionSize {_name,_regionSlug,_sizeSlug}) imageId = 
+createDroplet :: Token -> PersistentAttributes -> ImageId -> IO Droplet
+createDroplet token (PersistentAttributes {_name,_regionSlug,_sizeSlug}) imageId = 
     do WrappedDroplet d <- doPOST' 
                            ("/v2/droplets/") 
                            []
@@ -534,7 +534,7 @@ droplet token dropletId0 =
 snapshots :: MonadIO m => Token -> m [Snapshot]
 snapshots token = getSnapshots <$> liftIO (doGET' "/v2/snapshots/?resource_type=droplet" token)
 
-dropletMatches :: NameRegionSize -> Droplet -> Bool 
+dropletMatches :: PersistentAttributes -> Droplet -> Bool 
 dropletMatches attrs d =
     attrs == view dropletAttrs d   
 

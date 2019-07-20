@@ -130,15 +130,50 @@ makeHetzner token = Provider makeCandidates undefined
         Right actual -> return actual
 
 --
+--
+servers :: MonadIO m => Token -> m [Server]
+servers token = getServers <$> liftIO (doGET' "/v1/servers" token)
+
 newtype Servers = Servers { getServers :: [Server] } deriving Show
 
 instance FromJSON Servers where
     parseJSON = withObject "Servers" $ \v -> 
         Servers <$> v .: "servers"
 
+serverMatches :: PersistentAttributes -> Server -> Bool 
+serverMatches attrs d =
+    attrs == view attributes d   
+
+createServer :: Token -> PersistentAttributes -> SnapshotId -> IO Server
+createServer token (PersistentAttributes {_serverName,_serverType,_serverLocation}) imageId = 
+    do d <- doPOST' 
+            ("/v1/servers/") 
+            []
+            (object 
+              [
+                 "name" .= _serverName,
+                 "server_type" .= _serverType,
+                 "location" .= _serverLocation,
+                 "image" .= show imageId
+              ])
+            token
+       log ("Initiated server creation: " ++ show d)
+       complete (serverStatus._Void.united) -- no explicit error state, we don't match anything
+                (serverStatus._Running)
+                (server token (view serverId d))
+
+server :: MonadIO m => Token -> ServerId -> m Server
+server token serverId0 = 
+    do WrappedServer d <- liftIO (doGET' (fromString ("/v1/servers/" ++ show serverId0)) token)
+       return d
+
+newtype WrappedServer = WrappedServer { getServer :: Server } deriving Show
+
+instance FromJSON WrappedServer where
+    parseJSON = withObject "WrappedServer" $ \v -> 
+        WrappedServer <$> v .: "server"
 
 -- running, initializing, starting, stopping, off, deleting, migrating, rebuilding, unknown
-
 data Server = Server 
              {
                 _serverId :: ServerId
@@ -249,7 +284,104 @@ address = field' @"_address"
 _Running :: Traversal' ServerStatus ()
 _Running = _Ctor' @"Running"
 
+
+
+-- Unlike the deletes in DO, this returns a body pointing to an action.
+deleteServer :: Token -> ServerId -> IO ()
+deleteServer token serverId0 = 
+    do WrappedAction a <- doDELETE' (fromString ("/v1/servers/" ++show serverId0)) token
+       complete (actionStatus._ActionError)
+                (actionStatus._ActionSuccess)
+                (action token (view actionId a))
+       pure ()
+
+shutdownServer :: Token -> ServerId -> IO Action
+shutdownServer token serverId0 =
+    do WrappedAction a <- doPOST' 
+                          (fromString ("/v1/servers/"++ show serverId0 ++"/actions/poweroff"))
+                          []
+                          ()
+                          token
+       log ("Initiated shutdown action: " ++ show a)
+       complete (actionStatus._ActionError)
+                (actionStatus._ActionSuccess)
+                (action token (view actionId a))
+
 --
+
+snapshots :: MonadIO m => Token -> m [Snapshot]
+snapshots token = getSnapshots <$> liftIO (doGET' "/v1/images?type=snapshot" token)
+
+newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
+
+instance FromJSON Snapshots where
+    parseJSON = withObject "Snapshots" $ \v -> 
+        Snapshots <$> v .: "images"
+
+data Snapshot = Snapshot
+              {
+                _snapshotId :: SnapshotId,
+                _snapshotLabels :: Map Text SnapshotLabelValue
+              } deriving (Generic,Show)
+
+instance FromJSON Snapshot where
+    parseJSON = withObject "Snapshot" $ \v -> 
+        do Right i <- floatingOrInteger <$> v .: "id" 
+           labels <- v .: "tags"
+           pure (Snapshot i labels)
+
+type SnapshotId = Int
+
+thriftyKey :: Text
+thriftyKey = "thrifty-stable-snapshot-identifier"
+
+type SnapshotLabelValue = Text
+
+snapshotId :: Lens' Snapshot SnapshotId
+snapshotId = field' @"_snapshotId"
+
+snapshotLabels :: Lens' Snapshot (Map Text SnapshotLabelValue)
+snapshotLabels = field' @"_snapshotLabels"
+
+snapshotMatches :: SnapshotLabelValue -> Snapshot -> Bool
+snapshotMatches snapshotLabelValue0 =
+    has (snapshotLabels.ix thriftyKey.only snapshotLabelValue0)
+
+createSnapshot :: Token -> SnapshotLabelValue -> ServerId -> IO Action
+createSnapshot token label serverId0 = 
+    do WrappedAction a <- doPOST' 
+                          (fromString ("/v1/servers/"++ show serverId0 ++"/actions/create_image"))
+                          []
+                          (object 
+                            [   
+                                "type" .= String "snapshot",
+                                "description" .= String "thrifty snapshot",
+                                "labels" .= 
+                                    object [ thriftyKey .= label ]
+                            ])
+                          token
+       log ("Initiated snapshot action: " ++ show a)
+       complete (actionStatus._ActionError)
+                (actionStatus._ActionSuccess)
+                (action token (view actionId a))
+
+-- Unlike the deletes in DO, this returns a body pointing to an action.
+deleteSnapshot :: Token -> SnapshotId -> IO ()
+deleteSnapshot token snapshotId0 = 
+    do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++show snapshotId0)) token
+       log ("Initiated delete snapshot action: " ++ show a)
+       complete (actionStatus._ActionError)
+                (actionStatus._ActionSuccess)
+                (action token (view actionId a))
+       pure ()
+
+--
+--
+action :: Token -> ActionId -> IO Action
+action token actionId0 = 
+    do WrappedAction a <- doGET' (fromString ("/v1/actions/" ++ show actionId0)) token
+       return a
+
 newtype WrappedAction = WrappedAction { getAction :: Action } deriving Show
 
 instance FromJSON WrappedAction where
@@ -296,141 +428,6 @@ _ActionSuccess =  _Ctor' @"ActionSuccess"
 
 _ActionError :: Traversal' ActionStatus ()
 _ActionError = _Ctor' @"ActionError" 
-
---
-
-snapshots :: MonadIO m => Token -> m [Snapshot]
-snapshots token = getSnapshots <$> liftIO (doGET' "/v1/images?type=snapshot" token)
-
-newtype Snapshots = Snapshots { getSnapshots :: [Snapshot] }
-
-instance FromJSON Snapshots where
-    parseJSON = withObject "Snapshots" $ \v -> 
-        Snapshots <$> v .: "images"
-
-data Snapshot = Snapshot
-              {
-                _snapshotId :: SnapshotId,
-                _snapshotLabels :: Map Text SnapshotLabelValue
-              } deriving (Generic,Show)
-
-instance FromJSON Snapshot where
-    parseJSON = withObject "Snapshot" $ \v -> 
-        do Right i <- floatingOrInteger <$> v .: "id" 
-           labels <- v .: "tags"
-           pure (Snapshot i labels)
-
-type SnapshotId = Int
-
-thriftyLabelKey :: Text
-thriftyLabelKey = "thrifty-stable-identifier"
-
-type SnapshotLabelValue = Text
-
-snapshotId :: Lens' Snapshot SnapshotId
-snapshotId = field' @"_snapshotId"
-
-snapshotLabels :: Lens' Snapshot (Map Text SnapshotLabelValue)
-snapshotLabels = field' @"_snapshotLabels"
-
---
-serverMatches :: PersistentAttributes -> Server -> Bool 
-serverMatches attrs d =
-    attrs == view attributes d   
-
-snapshotMatches :: SnapshotLabelValue -> Snapshot -> Bool
-snapshotMatches snapshotLabelValue0 =
-    has (snapshotLabels.ix thriftyLabelKey.only snapshotLabelValue0)
-
---
-action :: Token -> ActionId -> IO Action
-action token actionId0 = 
-    do WrappedAction a <- doGET' (fromString ("/v1/actions/" ++ show actionId0)) token
-       return a
-
---
--- 
-createSnapshot :: Token -> SnapshotLabelValue -> ServerId -> IO Action
-createSnapshot token label serverId0 = 
-    do WrappedAction a <- doPOST' 
-                          (fromString ("/v1/servers/"++ show serverId0 ++"/actions/create_image"))
-                          []
-                          (object 
-                            [   
-                                "type" .= String "snapshot",
-                                "description" .= String "thrifty snapshot",
-                                "labels" .= 
-                                    object [ "thrifty" .= label ]
-                            ])
-                          token
-       log ("Initiated snapshot action: " ++ show a)
-       complete (actionStatus._ActionError)
-                (actionStatus._ActionSuccess)
-                (action token (view actionId a))
-
--- Unlike the deletes in DO, this returns a body pointing to an action.
-deleteSnapshot :: Token -> SnapshotId -> IO ()
-deleteSnapshot token snapshotId0 = 
-    do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++show snapshotId0)) token
-       log ("Initiated delete snapshot action: " ++ show a)
-       complete (actionStatus._ActionError)
-                (actionStatus._ActionSuccess)
-                (action token (view actionId a))
-       pure ()
-
--- Unlike the deletes in DO, this returns a body pointing to an action.
-deleteServer :: Token -> ServerId -> IO ()
-deleteServer token serverId0 = 
-    do WrappedAction a <- doDELETE' (fromString ("/v1/servers/" ++show serverId0)) token
-       complete (actionStatus._ActionError)
-                (actionStatus._ActionSuccess)
-                (action token (view actionId a))
-       pure ()
-
-
-createServer :: Token -> PersistentAttributes -> SnapshotId -> IO Server
-createServer token (PersistentAttributes {_serverName,_serverType,_serverLocation}) imageId = 
-    do d <- doPOST' 
-            ("/v1/servers/") 
-            []
-            (object 
-              [
-                 "name" .= _serverName,
-                 "server_type" .= _serverType,
-                 "location" .= _serverLocation,
-                 "image" .= show imageId
-              ])
-            token
-       log ("Initiated server creation: " ++ show d)
-       complete (serverStatus._Void.united)
-                (serverStatus._Running)
-                (server token (view serverId d))
-
-server :: MonadIO m => Token -> ServerId -> m Server
-server token serverId0 = 
-    do WrappedServer d <- liftIO (doGET' (fromString ("/v1/servers/" ++ show serverId0)) token)
-       return d
-
-newtype WrappedServer = WrappedServer { getServer :: Server } deriving Show
-
-instance FromJSON WrappedServer where
-    parseJSON = withObject "WrappedServer" $ \v -> 
-        WrappedServer <$> v .: "server"
-
-servers :: MonadIO m => Token -> m [Server]
-servers token = getServers <$> liftIO (doGET' "/v1/servers" token)
-
-shutdownServer :: Token -> ServerId -> IO Action
-shutdownServer token serverId0 =
-    do WrappedAction a <- doPOST' 
-                          (fromString ("/v1/servers/"++ show serverId0 ++"/actions/poweroff"))
-                          []
-                          ()
-                          token
-       log ("Initiated shutdown action: " ++ show a)
-       complete (actionStatus._ActionError)
-                (actionStatus._ActionSuccess)
-                (action token (view actionId a))
 
 --
 complete 
