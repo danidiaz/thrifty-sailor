@@ -134,6 +134,9 @@ library delays
   hs-source-dirs:      delays
   default-language:    Haskell2010
 
+-- A Backpack signature for networking-related functions.  -- Using Backpack
+-- here is overkill as we only use wreq anyway. I did it as a -- learning
+-- exercise.
 library t-network-sig
   signatures:
         Thrifty.Network

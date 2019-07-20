@@ -50,7 +50,7 @@ import           Thrifty.Prelude
 import qualified Thrifty.Delays
 import           Thrifty.Delays (RetryPlan(..),seconds,factor)
 import           Thrifty.JSON
-import           Thrifty.Network (doGET,doPOST,doDELETE,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
+import           Thrifty.Network (doGET,doPOST,doDELETE,doDELETE_,Token,AbsoluteURL,RelativeURL,extendAbsoluteURL)
 
 data HetznerServer = HetznerServer 
             { 
@@ -71,7 +71,7 @@ instance ToJSON HetznerServer where
     toJSON = recordToJSON hetznerServerAliases
 
 makeHetzner :: Token -> Provider HetznerServer  
-makeHetzner token = Provider makeCandidates undefined
+makeHetzner token = Provider makeCandidates makeServerState
   where
   makeCandidates :: IO [HetznerServer]
   makeCandidates = do
@@ -94,7 +94,7 @@ makeHetzner token = Provider makeCandidates undefined
                d <- createServer token _configServerAttrs (view snapshotId s)
                log "Deleting snapshot..." 
                deleteSnapshot token (view snapshotId s)
-               log "Echoing server on stdout..." 
+               log "Echoing server ip on stdout..." 
                case toListOf (networks.folded.address) d of
                  [] -> 
                     throwError (userError "No public ip on server!")
@@ -146,7 +146,7 @@ serverMatches attrs d =
 
 createServer :: Token -> PersistentAttributes -> SnapshotId -> IO Server
 createServer token (PersistentAttributes {_serverName,_serverType,_serverLocation}) imageId = 
-    do d <- doPOST' 
+    do WrappedServer d <- doPOST' 
             ("/v1/servers/") 
             []
             (object 
@@ -300,7 +300,7 @@ shutdownServer token serverId0 =
     do WrappedAction a <- doPOST' 
                           (fromString ("/v1/servers/"++ show serverId0 ++"/actions/poweroff"))
                           []
-                          ()
+                          (object [])
                           token
        log ("Initiated shutdown action: " ++ show a)
        complete (actionStatus._ActionError)
@@ -327,7 +327,7 @@ data Snapshot = Snapshot
 instance FromJSON Snapshot where
     parseJSON = withObject "Snapshot" $ \v -> 
         do Right i <- floatingOrInteger <$> v .: "id" 
-           labels <- v .: "tags"
+           labels <- v .: "labels"
            pure (Snapshot i labels)
 
 type SnapshotId = Int
@@ -365,14 +365,11 @@ createSnapshot token label serverId0 =
                 (actionStatus._ActionSuccess)
                 (action token (view actionId a))
 
--- Unlike the deletes in DO, this returns a body pointing to an action.
+-- According to the docs, this returns immediately without a body (unlike
+-- deleting a server)
 deleteSnapshot :: Token -> SnapshotId -> IO ()
 deleteSnapshot token snapshotId0 = 
-    do WrappedAction a <- doDELETE' (fromString ("/v1/images/" ++show snapshotId0)) token
-       log ("Initiated delete snapshot action: " ++ show a)
-       complete (actionStatus._ActionError)
-                (actionStatus._ActionSuccess)
-                (action token (view actionId a))
+    do doDELETE_' (fromString ("/v1/images/" ++show snapshotId0)) token
        pure ()
 
 --
@@ -440,7 +437,7 @@ complete errCheck doneCheck =
     Thrifty.Delays.complete
     (RetryPlan 
        { 
-           giveUpAfter = seconds 360,
+           giveUpAfter = seconds 1800,
            initialDelay = seconds 2,
            increaseFactor = factor 1.5,
            maximumDelay = seconds 15 
@@ -461,3 +458,5 @@ doPOST' = doPOST . extendAbsoluteURL baseURL
 doDELETE' :: FromJSON result => RelativeURL -> Token -> IO result
 doDELETE' = doDELETE . extendAbsoluteURL baseURL
 
+doDELETE_' :: RelativeURL -> Token -> IO ()
+doDELETE_' = doDELETE_ . extendAbsoluteURL baseURL

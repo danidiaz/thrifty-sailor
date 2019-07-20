@@ -513,7 +513,7 @@ complete errCheck doneCheck =
     Thrifty.Delays.complete
     (RetryPlan 
        { 
-           giveUpAfter = seconds 360,
+           giveUpAfter = seconds 1800,
            initialDelay = seconds 2,
            increaseFactor = factor 1.5,
            maximumDelay = seconds 15 

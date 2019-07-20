@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Thrifty.Network (
         Token
     ,   doGET
@@ -46,7 +47,10 @@ doDELETE_ url token =
 -- Delete returning a JSON body
 doDELETE :: (FromJSON result) => AbsoluteURL -> Token -> IO result
 doDELETE url token = 
-    do r <- deleteWith (authorized token defaults) url
+    do let options = set (header "Accept") ["application/json"] 
+                   . authorized token
+                   $ defaults
+       r <- deleteWith options url
        view responseBody <$> asJSON r
 
 authorized :: Token -> Network.Wreq.Options -> Network.Wreq.Options
