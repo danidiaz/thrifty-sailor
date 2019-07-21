@@ -1,39 +1,35 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#  OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Thrifty.Main (defaultMain,ProviderName(..),tokenFromEnvironment) where
 
 import           Prelude hiding (log)
 
-import           System.Directory
-import           System.FilePath
-import           System.Environment
-import           Data.Aeson
+import           Control.Monad.Except
 import           Data.Coerce
 import           Data.Foldable (for_)
 import           Data.String (IsString(..))
-import           Control.Monad.Except
-import           Options.Applicative
-import qualified Options.Applicative as O
-import qualified Data.ByteString.Lazy.Char8
 import           Data.Text (Text)            
 import qualified Data.Text             
 import qualified Data.Text.IO             
-import           Data.List.NonEmpty (NonEmpty((:|)))
-import           GHC.Generics 
 import           Data.Map(Map)
 import qualified Data.Map
 import qualified Data.ByteString.Lazy
+import           Data.Aeson
+import           GHC.Generics 
+import           System.Directory
+import           System.FilePath
+import           System.Environment
 import           System.IO (stdout)
-
+import           Options.Applicative
+import qualified Options.Applicative as O
+import           GHC.Stack
 import           Thrifty.Prelude
 import           Thrifty.JSON
 import           Thrifty
@@ -91,7 +87,7 @@ parserInfo =
 
     serverArgument = strArgument (metavar "SERVER" <> help "Name of the server")
 
-defaultMain :: [(ProviderName,IO SomeProvider)] -> IO ()
+defaultMain :: HasCallStack => [(ProviderName,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
@@ -131,7 +127,7 @@ defaultMain (Data.Map.fromList -> plugins) = do
              queriedState <- serverState provider server
              callback queriedState
 
-load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
+load :: HasCallStack => IO (Map ProviderName (Map ServerName Data.Aeson.Value))
 load = 
   do path <- xdgConfPath
      parseResult <- eitherDecodeFileStrict path

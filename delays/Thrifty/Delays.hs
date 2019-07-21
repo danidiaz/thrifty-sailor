@@ -19,6 +19,7 @@ import           Data.Time.Clock
 import           Streaming
 import qualified Streaming.Prelude as S
 import           Thrifty.Prelude
+import           GHC.Stack
 
 newtype Seconds = Seconds { getSeconds :: Int } deriving (Eq,Ord,Show)
 
@@ -75,7 +76,8 @@ data RetryPlan = RetryPlan {
        maximumDelay :: Seconds
     }
 
-complete :: Show a 
+complete :: (HasCallStack,
+             Show a)
          => RetryPlan
          -> (a -> Bool) -- ^ error check
          -> (a -> Bool) -- ^ completion check

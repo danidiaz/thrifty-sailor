@@ -14,13 +14,14 @@ module Thrifty.Prelude (
 
 import           Prelude hiding (log)
 import           Control.Monad.Except 
+import           Control.Monad.IO.Class
+import           Control.Exception
 import           Data.Bifunctor
 import           Data.Foldable
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Control.Monad.IO.Class
-import           System.IO
-import           Control.Exception
 import           Data.Kind
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import           System.IO
+import           GHC.Stack
 
 class LiftError (k :: Type -> Type) (e :: Type) where
     type Adapter k e :: Type
@@ -56,7 +57,7 @@ absence container = case Data.Foldable.toList container of
 log :: MonadIO m => String -> m ()
 log = liftIO . hPutStrLn stderr
 
-doable :: (Show target,Show source,MonadError IOException m,MonadIO m)
+doable :: (Show target,Show source,MonadError IOException m,MonadIO m,HasCallStack)
        => m [target]
        -> (target -> Bool)
        -> m [source]

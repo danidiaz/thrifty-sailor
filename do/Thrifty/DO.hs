@@ -8,9 +8,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BlockArguments #-}
@@ -66,26 +66,24 @@ module Thrifty.DO (
     ) where
 
 import           Prelude hiding (log)
-import           Data.Foldable
-import           Data.Traversable
-import           Control.Monad.Except
-import           Data.Aeson
-import           Data.Monoid
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Trans.Except
+import           Control.Monad.Except
 import           Control.Lens hiding ((.=))
-import           Data.Text (Text)            
-import qualified Data.Text
+import           Control.Exception
+import           Data.Traversable
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import           Data.String (fromString)
-import           Control.Exception
+import           Data.Text (Text)            
+import qualified Data.Text
+import qualified Data.Text.Read
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
-import           GHC.Generics (Generic)
 import           Data.RBR
-
-import qualified Data.Text.Read
+import           GHC.Generics (Generic)
+import           Data.Aeson
+import           Data.Monoid
 
 import           Thrifty
 import           Thrifty.Prelude

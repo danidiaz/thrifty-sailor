@@ -21,29 +21,29 @@ module Thrifty.Hetzner (
     ) where
 
 import           Prelude hiding (log)
-import           Data.Foldable
-import           Data.Traversable
-import           Control.Monad.Except
-import           Data.Aeson
-import           Data.Monoid
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Except
 import           Control.Monad.Trans.Except
 import           Control.Lens hiding ((.=))
+import           Control.Exception
+import           Data.Traversable
+import           Data.Monoid
 import           Data.Text (Text)            
 import qualified Data.Text
+import qualified Data.Text.Read
 import qualified Data.Map
 import           Data.Map (Map)
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import           Data.String (fromString)
-import           Control.Exception
 import           Data.Generics.Product.Fields (field')
 import           Data.Generics.Sum.Constructors (_Ctor')
 import           GHC.Generics (Generic)
 import qualified Data.RBR
 import           Data.RBR (FromRecord,ToRecord,unit)
+import           Data.Aeson
 import           Data.Scientific (floatingOrInteger)
-import qualified Data.Text.Read
 
 import           Thrifty
 import           Thrifty.Prelude

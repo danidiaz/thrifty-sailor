@@ -47,8 +47,7 @@ doDELETE_ url token =
 -- Delete returning a JSON body
 doDELETE :: (FromJSON result) => AbsoluteURL -> Token -> IO result
 doDELETE url token = 
-    do let options = set (header "Accept") ["application/json"] 
-                   . authorized token
+    do let options = authorized token
                    $ defaults
        r <- deleteWith options url
        view responseBody <$> asJSON r
