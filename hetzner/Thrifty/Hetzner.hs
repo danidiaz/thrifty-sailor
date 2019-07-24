@@ -68,7 +68,7 @@ instance FromJSON HetznerServer where
     parseJSON = nominalRecordFromJSON hetznerServerAliases
 
 instance ToJSON HetznerServer where
-    toJSON = recordToJSON hetznerServerAliases
+    toJSON = nominalRecordToJSON hetznerServerAliases
 
 makeHetzner :: Token -> Provider HetznerServer  
 makeHetzner token = Provider makeCandidates makeServerState
@@ -234,7 +234,7 @@ instance FromJSON PersistentAttributes where
 
 -- | Used only in Config object.
 instance ToJSON PersistentAttributes where
-    toJSON = recordToJSON persistentAttributesAliases
+    toJSON = nominalRecordToJSON persistentAttributesAliases
 
 serverName :: Lens' PersistentAttributes Text
 serverName = field' @"_serverName"

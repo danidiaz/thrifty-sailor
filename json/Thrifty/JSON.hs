@@ -14,7 +14,7 @@ module Thrifty.JSON (
         Aliases
     ,   alias
     ,   nominalRecordFromJSON
-    ,   recordToJSON
+    ,   nominalRecordToJSON
     ) where
 
 import           Data.Aeson
@@ -48,10 +48,9 @@ nominalRecordFromJSON aliases =
     let giveFieldName (K alias) (Compose f) = Compose (\o -> Data.Aeson.Types.explicitParseField f o (fromString alias))
         parsers = cpure_NP (Proxy @FromJSON) (Compose parseJSON)
         Compose parser = fromNP <$> sequence_NP (liftA2_NP giveFieldName (toNP aliases) parsers)
-     -- TODO put actual name of the object here, for better diagnostics
      in withObject (getRecordName (Proxy @r)) $ \o -> fromRecord <$> parser o
 
-recordToJSON 
+nominalRecordToJSON 
     :: forall r c flat. (ToRecord r, 
                          RecordCode r ~ c, 
                          Productlike '[] c flat, 
@@ -59,7 +58,7 @@ recordToJSON
     => Aliases c
     -> r
     -> Data.Aeson.Value
-recordToJSON aliases r = 
+nominalRecordToJSON aliases r = 
     let giveFieldName (K alias) (I fieldValue) = K (fromString alias .= fieldValue)
         pairs = 
             hcliftA2 (Proxy @ToJSON) giveFieldName (toNP aliases) (toNP (toRecord r))

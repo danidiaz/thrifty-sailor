@@ -108,7 +108,7 @@ instance FromJSON DOServer where
     parseJSON = nominalRecordFromJSON doServerAliases
 
 instance ToJSON DOServer where
-    toJSON = recordToJSON doServerAliases
+    toJSON = nominalRecordToJSON doServerAliases
 
 makeDO :: Token -> Provider DOServer  
 makeDO token = Provider makeCandidates makeServerState
@@ -469,7 +469,7 @@ instance FromJSON PersistentAttributes where
 
 -- | Used only in Config object.
 instance ToJSON PersistentAttributes where
-    toJSON = recordToJSON persistenAttributesAliases
+    toJSON = nominalRecordToJSON persistenAttributesAliases
 
 name :: Lens' PersistentAttributes Text
 name f s = _name s & f <&> \a -> s { _name = a }
