@@ -76,8 +76,7 @@ data RetryPlan = RetryPlan {
        maximumDelay :: Seconds
     }
 
-complete :: (HasCallStack,
-             Show a)
+complete :: Show a
          => RetryPlan
          -> (a -> Bool) -- ^ error check
          -> (a -> Bool) -- ^ completion check

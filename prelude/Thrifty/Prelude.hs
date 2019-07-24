@@ -57,7 +57,7 @@ absence container = case Data.Foldable.toList container of
 log :: MonadIO m => String -> m ()
 log = liftIO . hPutStrLn stderr
 
-doable :: (Show target,Show source,MonadError IOException m,MonadIO m,HasCallStack)
+doable :: (Show target,Show source,MonadError IOException m,MonadIO m)
        => m [target]
        -> (target -> Bool)
        -> m [source]

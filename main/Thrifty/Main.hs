@@ -87,7 +87,7 @@ parserInfo =
 
     serverArgument = strArgument (metavar "SERVER" <> help "Name of the server")
 
-defaultMain :: HasCallStack => [(ProviderName,IO SomeProvider)] -> IO ()
+defaultMain :: [(ProviderName,IO SomeProvider)] -> IO ()
 defaultMain (Data.Map.fromList -> plugins) = do
     command <- O.execParser parserInfo
     case command of
@@ -127,7 +127,7 @@ defaultMain (Data.Map.fromList -> plugins) = do
              queriedState <- serverState provider server
              callback queriedState
 
-load :: HasCallStack => IO (Map ProviderName (Map ServerName Data.Aeson.Value))
+load :: IO (Map ProviderName (Map ServerName Data.Aeson.Value))
 load = 
   do path <- xdgConfPath
      parseResult <- eitherDecodeFileStrict path
